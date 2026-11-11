@@ -1,0 +1,18 @@
+# Dependencies / Library
+node_modules/
+package-lock.json
+
+# Database lokal biner (cukup commit schema.sql)
+*.db
+*.sqlite
+database/*.db
+
+# File konfigurasi lokal & lingkungan
+.env
+.env.local
+
+# Editor & System logs
+.vscode/
+Thumbs.db
+.DS_Store
+*.log
