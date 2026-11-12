@@ -1,0 +1,21 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /Prototipe-Hanif-Hafidz/
+
+# Route API endpoints
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/products/([0-9]+)/recipe$ api/recipes.php?id=$1 [L,QSA]
+RewriteRule ^api/products$ api/products.php [L,QSA]
+RewriteRule ^api/pos/checkout$ api/pos.php [L,QSA]
+RewriteRule ^api/inventory/critical-alerts$ api/inventory.php?action=critical-alerts [L,QSA]
+RewriteRule ^api/inventory/restock$ api/inventory.php [L,QSA]
+RewriteRule ^api/inventory$ api/inventory.php [L,QSA]
+RewriteRule ^api/dashboard/stats$ api/dashboard.php [L,QSA]
+RewriteRule ^api/auth/login$ api/auth.php?action=login [L,QSA]
+RewriteRule ^api/outlets$ api/outlets.php [L,QSA]
+</IfModule>
+
+# Set default document
+DirectoryIndex index.php index.html
+
