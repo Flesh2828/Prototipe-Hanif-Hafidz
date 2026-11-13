@@ -1,5 +1,5 @@
 // ==========================================
-// STATE & CONFIG
+// STATE & CONFIG (KopiKita Design System)
 // ==========================================
 let currentUser = (typeof currentPhpUser !== 'undefined' && currentPhpUser) ? currentPhpUser : {
   id: 1,
@@ -11,12 +11,65 @@ let currentUser = (typeof currentPhpUser !== 'undefined' && currentPhpUser) ? cu
 };
 
 let allProducts = [];
-let allIngredients = [];
+let allIngredients = (typeof initialIngredientsData !== 'undefined' && initialIngredientsData) ? initialIngredientsData : [];
+let allCategories = (typeof initialCategoriesData !== 'undefined' && initialCategoriesData) ? initialCategoriesData : [];
 let cart = []; // { product, quantity }
 let lastCheckoutResult = null;
 
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(number);
+};
+
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+};
+
+// ==========================================
+// NATIVE MODAL SYSTEM (No Bootstrap JS Required)
+// ==========================================
+window.openModal = function(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+};
+
+window.closeModal = function(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+};
+
+// Polyfill window.bootstrap.Modal for backwards compatibility
+window.bootstrap = window.bootstrap || {};
+window.bootstrap.Modal = class {
+  constructor(el) {
+    this.el = typeof el === 'string' ? document.getElementById(el) : el;
+  }
+  show() {
+    if (this.el) {
+      this.el.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  hide() {
+    if (this.el) {
+      this.el.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+  }
+  static getInstance(el) {
+    const element = typeof el === 'string' ? document.getElementById(el) : el;
+    return new window.bootstrap.Modal(element);
+  }
+  static getOrCreateInstance(el) {
+    const element = typeof el === 'string' ? document.getElementById(el) : el;
+    return new window.bootstrap.Modal(element);
+  }
 };
 
 /**
@@ -51,9 +104,12 @@ function apiUrl(path) {
     return `${basePath}api/inventory.php?action=critical-alerts${query}`;
   }
 
-  // 4. Inventory Restock: api/inventory/restock -> api/inventory.php
+  // 4. Inventory Actions
+  if (clean.startsWith('api/inventory?action=')) {
+    return `${basePath}${clean.replace('api/inventory?', 'api/inventory.php?')}`;
+  }
   if (clean === 'api/inventory/restock') {
-    return `${basePath}api/inventory.php`;
+    return `${basePath}api/inventory.php?action=restock`;
   }
 
   // 5. Inventory: api/inventory -> api/inventory.php
@@ -62,7 +118,10 @@ function apiUrl(path) {
     return `${basePath}api/inventory.php${query}`;
   }
 
-  // 6. Products: api/products -> api/products.php
+  // 6. Products Actions: api/products?action=... -> api/products.php?action=...
+  if (clean.startsWith('api/products?action=')) {
+    return `${basePath}${clean.replace('api/products?', 'api/products.php?')}`;
+  }
   if (clean.startsWith('api/products')) {
     const query = clean.includes('?') ? '?' + clean.split('?')[1] : '';
     return `${basePath}api/products.php${query}`;
@@ -90,11 +149,24 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUser = currentPhpUser;
   }
   updateUserDisplay();
+  loadCategories();
   loadProducts();
   loadDashboardStats();
   loadInventory();
   loadCriticalAlerts();
 });
+
+// Load Categories
+async function loadCategories() {
+  try {
+    const res = await fetch(apiUrl('api/categories.php'));
+    if (res.ok) {
+      allCategories = await res.json();
+    }
+  } catch (e) {
+    console.warn('Gagal memuat kategori:', e);
+  }
+}
 
 // Switch Tab (untuk Single Page mode di public/index.html)
 function showTab(tabId) {
@@ -104,7 +176,6 @@ function showTab(tabId) {
     const target = document.getElementById(tabId);
     if (target) target.style.display = 'block';
 
-    // Update active pill
     document.querySelectorAll('#navTabs .nav-link').forEach(btn => btn.classList.remove('active'));
     const activeBtn = Array.from(document.querySelectorAll('#navTabs .nav-link')).find(btn => btn.getAttribute('onclick')?.includes(tabId));
     if (activeBtn) activeBtn.classList.add('active');
@@ -134,16 +205,12 @@ async function switchUserRole(role, name, outletId, outletName) {
   }
 
   updateUserDisplay();
-  const modalEl = document.getElementById('userSwitchModal');
-  if (modalEl) {
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
-  }
+  closeModal('userSwitchModal');
 
-  // Reload data according to user outlet
   loadDashboardStats();
   loadInventory();
   loadCriticalAlerts();
+  loadProducts();
 
   alert(`Peran berhasil dialihkan ke: ${name} (${role.toUpperCase()})\nOutlet Aktif: ${currentUser.outlet_name}`);
 }
@@ -156,7 +223,7 @@ function updateUserDisplay() {
   if (outletDisp) outletDisp.textContent = currentUser.outlet_name;
 
   // RBAC permissions check
-  const btnRestock = document.querySelector('[data-bs-target="#restockModal"]');
+  const btnRestock = document.querySelector('[data-bs-target="#restockModal"], [data-modal-target="restockModal"]');
   if (btnRestock) {
     if (['cashier', 'barista', 'accountant'].includes(currentUser.role)) {
       btnRestock.style.display = 'none';
@@ -182,7 +249,7 @@ function updateUserDisplay() {
 // ==========================================
 async function loadProducts() {
   try {
-    const res = await fetch(apiUrl('api/products'));
+    const res = await fetch(apiUrl('api/products.php'));
     allProducts = await res.json();
     renderMenuGrid(allProducts);
     renderRecipeTable(allProducts);
@@ -197,53 +264,51 @@ function renderMenuGrid(products) {
   grid.innerHTML = '';
 
   products.forEach(p => {
-    const col = document.createElement('div');
-    col.className = 'col';
+    const card = document.createElement('article');
+    card.className = 'menu-card';
+    card.onclick = () => addToCart(p.id);
 
     const iconMap = {
-      'Coffee Espresso Based': 'bi-cup-hot',
-      'Manual Brew': 'bi-filter-circle',
-      'Non-Coffee & Mocktails': 'bi-cup-straw',
-      'Pastry & Snacks': 'bi-egg-fried'
+      'Coffee Espresso Based': '☕',
+      'Manual Brew': '🧪',
+      'Non-Coffee & Mocktails': '🍹',
+      'Pastry & Snacks': '🥐'
     };
-    const iconClass = iconMap[p.category_name] || 'bi-cup';
+    const icon = iconMap[p.category_name] || '☕';
 
-    col.innerHTML = `
-      <div class="card h-100 menu-card shadow-sm" onclick="addToCart(${p.id})">
-        <div class="menu-img-placeholder">
-          <i class="bi ${iconClass}"></i>
+    card.innerHTML = `
+      <div class="menu-card__visual">
+        <span class="category-badge-pill">${p.category_name || 'Menu'}</span>
+        <span class="icon">${icon}</span>
+        <span class="sku-code">${p.code}</span>
+      </div>
+      <div class="menu-card__body">
+        <div>
+          <h3 class="menu-card__title">${p.name}</h3>
+          <p class="menu-card__desc">${p.description || ''}</p>
         </div>
-        <div class="card-body p-2 d-flex flex-column justify-content-between">
-          <div>
-            <span class="badge bg-light text-dark border mb-1" style="font-size: 0.7rem;">${p.code}</span>
-            <h6 class="card-title fw-bold mb-1 fs-6">${p.name}</h6>
-            <p class="card-text text-muted small mb-2 text-truncate">${p.description || ''}</p>
+        <div class="menu-card__footer">
+          <div class="menu-card__price-row">
+            <span class="menu-card__price">${formatRupiah(p.price)}</span>
+            <span class="menu-card__margin-badge" title="Estimasi Margin Laba Kotor">+${p.margin_pct}%</span>
           </div>
-          <div>
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="fw-bold text-primary">${formatRupiah(p.price)}</span>
-              <span class="badge bg-success-subtle text-success" title="Estimasi Margin">
-                +${p.margin_pct}%
-              </span>
-            </div>
-            <button class="btn btn-outline-dark btn-sm w-100 py-1" onclick="event.stopPropagation(); addToCart(${p.id})">
-              <i class="bi bi-plus-lg"></i> Tambah
-            </button>
-          </div>
+          <button class="btn-add-item" onclick="event.stopPropagation(); addToCart(${p.id})">
+            + Tambah
+          </button>
         </div>
       </div>
     `;
-    grid.appendChild(col);
+    grid.appendChild(card);
   });
 }
 
 function filterMenu() {
   const searchEl = document.getElementById('searchMenuInput');
   const catEl = document.getElementById('categoryFilter');
-  if (!searchEl || !catEl) return;
+  if (!searchEl) return;
 
   const query = searchEl.value.toLowerCase();
-  const category = catEl.value;
+  const category = catEl ? catEl.value : 'all';
 
   const filtered = allProducts.filter(p => {
     const matchQuery = p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query);
@@ -290,7 +355,12 @@ function renderCart() {
   if (!listEl) return;
 
   if (cart.length === 0) {
-    listEl.innerHTML = `<p class="text-center text-muted my-4"><i class="bi bi-cart-x fs-1 d-block"></i>Keranjang masih kosong</p>`;
+    listEl.innerHTML = `
+      <div class="cart-empty-state">
+        <span class="icon">🛒</span>
+        <p>Keranjang masih kosong</p>
+        <small style="font-size:11px; color:var(--color-text-muted);">Pilih menu dari katalog di sebelah kiri</small>
+      </div>`;
     const totalEl = document.getElementById('cartTotalAmount');
     if (totalEl) totalEl.textContent = 'Rp 0';
     const hppEl = document.getElementById('cartTotalHpp');
@@ -312,18 +382,18 @@ function renderCart() {
     totalHpp += subtotalHpp;
 
     const row = document.createElement('div');
-    row.className = 'd-flex justify-content-between align-items-center mb-2 pb-2 border-bottom';
+    row.className = 'cart-item-row';
     row.innerHTML = `
-      <div style="max-width: 60%;">
-        <div class="fw-bold small text-truncate">${item.product.name}</div>
-        <small class="text-muted">${formatRupiah(item.product.price)} &bull; HPP: ${formatRupiah(item.product.dynamic_hpp)}</small>
+      <div class="cart-item-info">
+        <div class="title">${item.product.name}</div>
+        <div class="sub">${formatRupiah(item.product.price)} &bull; HPP: ${formatRupiah(item.product.dynamic_hpp)}</div>
       </div>
-      <div class="d-flex align-items-center gap-1">
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="updateCartQty(${item.product.id}, -1)">-</button>
-        <span class="px-2 small fw-bold">${item.quantity}</span>
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="updateCartQty(${item.product.id}, 1)">+</button>
+      <div class="cart-item-stepper">
+        <button class="stepper-btn" onclick="updateCartQty(${item.product.id}, -1)">&minus;</button>
+        <span class="stepper-qty">${item.quantity}</span>
+        <button class="stepper-btn" onclick="updateCartQty(${item.product.id}, 1)">&#43;</button>
       </div>
-      <div class="fw-bold small text-end" style="min-width: 75px;">
+      <div class="cart-item-subtotal">
         ${formatRupiah(subtotal)}
       </div>
     `;
@@ -341,16 +411,6 @@ function renderCart() {
   if (marginEl) marginEl.textContent = `${formatRupiah(grossProfit)} (${marginPct}%)`;
 
   calculateChange();
-}
-
-function togglePaymentMethod() {
-  const selected = document.querySelector('input[name="paymentMethod"]:checked');
-  if (!selected) return;
-  const method = selected.value;
-  const cashGroup = document.getElementById('cashInputGroup');
-  if (cashGroup) {
-    cashGroup.style.display = method === 'cash' ? 'block' : 'none';
-  }
 }
 
 function calculateChange() {
@@ -391,7 +451,7 @@ async function processCheckout() {
   const btn = document.getElementById('btnCheckout');
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Menyimpan ke MySQL...`;
+    btn.innerHTML = `⏳ Menyimpan ke MySQL...`;
   }
 
   try {
@@ -425,16 +485,13 @@ async function processCheckout() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = `<i class="bi bi-check-circle-fill"></i> Simpan Transaksi & Potong Stok (BOM)`;
+      btn.innerHTML = `✅ Simpan Transaksi & Potong Stok`;
     }
   }
 }
 
 // Show ESC/POS Receipt Modal
 function showReceiptModal(data) {
-  const receiptEl = document.getElementById('receiptModal');
-  if (!receiptEl) return;
-
   const outNameEl = document.getElementById('receiptOutletName');
   if (outNameEl) outNameEl.textContent = currentUser.outlet_name;
 
@@ -457,8 +514,8 @@ function showReceiptModal(data) {
     data.items.forEach(it => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${it.name} <br> <small class="text-muted">${it.quantity} x ${formatRupiah(it.unit_price)}</small></td>
-        <td class="text-end fw-bold align-middle">${formatRupiah(it.subtotal)}</td>
+        <td style="padding:2px 0;">${it.name} <br> <small style="color:#666;">${it.quantity} x ${formatRupiah(it.unit_price)}</small></td>
+        <td style="text-align:right; font-weight:700; vertical-align:middle; padding:2px 0;">${formatRupiah(it.subtotal)}</td>
       `;
       table.appendChild(tr);
     });
@@ -484,8 +541,7 @@ function showReceiptModal(data) {
   const profitEl = document.getElementById('receiptGrossProfit');
   if (profitEl) profitEl.textContent = formatRupiah(data.gross_profit);
 
-  const modal = new bootstrap.Modal(receiptEl);
-  modal.show();
+  openModal('receiptModal');
 }
 
 function printReceipt() {
@@ -518,38 +574,36 @@ async function loadDashboardStats() {
     const txEl = document.getElementById('dashTransactions');
     if (txEl) txEl.textContent = `${data.summary.total_transactions} Order`;
 
-    // Render Outlet Performance Table
     const outTbody = document.getElementById('outletPerformanceTableBody');
     if (outTbody && data.outlet_performance) {
       outTbody.innerHTML = '';
       data.outlet_performance.forEach(op => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="fw-semibold">${op.outlet_name}</td>
-          <td><span class="badge bg-secondary">${op.transactions_count}</span></td>
-          <td class="fw-bold text-primary">${formatRupiah(op.total_omzet)}</td>
-          <td class="text-danger">${formatRupiah(op.total_hpp)}</td>
-          <td class="fw-bold text-success">${formatRupiah(op.gross_profit)}</td>
+          <td>${op.outlet_name}</td>
+          <td>${op.transactions_count}</td>
+          <td style="font-weight:700; color:var(--color-primary);">${formatRupiah(op.total_omzet)}</td>
+          <td style="color:var(--color-danger);">${formatRupiah(op.total_hpp)}</td>
+          <td style="font-weight:700; color:var(--color-success);">${formatRupiah(op.gross_profit)}</td>
         `;
         outTbody.appendChild(tr);
       });
     }
 
-    // Render Recent Orders Table
     const recTbody = document.getElementById('recentOrdersTableBody');
     if (recTbody && data.recent_orders) {
       recTbody.innerHTML = '';
       if (data.recent_orders.length === 0) {
-        recTbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Belum ada transaksi</td></tr>`;
+        recTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-text-muted);">Belum ada transaksi</td></tr>`;
       } else {
         data.recent_orders.forEach(ro => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td><span class="badge bg-light text-dark border">${ro.invoice_no}</span></td>
-            <td class="small">${ro.outlet_name}</td>
-            <td><span class="badge ${ro.payment_method === 'cash' ? 'bg-success' : 'bg-primary'}">${ro.payment_method}</span></td>
-            <td class="fw-bold">${formatRupiah(ro.total_amount)}</td>
-            <td class="text-success small fw-semibold">+${formatRupiah(ro.gross_profit)}</td>
+            <td><code>${ro.invoice_no}</code></td>
+            <td>${ro.outlet_name}</td>
+            <td><span class="status-pill">${ro.payment_method}</span></td>
+            <td style="font-weight:700;">${formatRupiah(ro.total_amount)}</td>
+            <td style="color:var(--color-success); font-weight:600;">+${formatRupiah(ro.gross_profit)}</td>
           `;
           recTbody.appendChild(tr);
         });
@@ -561,35 +615,48 @@ async function loadDashboardStats() {
 }
 
 // ==========================================
-// F03: RESEP & HPP DINAMIS TABLE
+// F03: RESEP & HPP DINAMIS CRUD (TABLE & MODALS)
 // ==========================================
 function renderRecipeTable(products) {
   const tbody = document.getElementById('recipeMenuTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  const isManagerOrOwner = ['owner', 'manager'].includes(currentUser.role);
+
   products.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><span class="badge bg-light text-dark border">${p.code}</span></td>
-      <td class="fw-bold">${p.name}</td>
-      <td><span class="badge bg-secondary-subtle text-secondary">${p.category_name}</span></td>
-      <td class="fw-bold text-primary">${formatRupiah(p.price)}</td>
-      <td class="fw-bold text-danger">${formatRupiah(p.dynamic_hpp)}</td>
-      <td><span class="badge bg-success">+${formatRupiah(p.gross_margin)} (${p.margin_pct}%)</span></td>
+      <td><code>${p.code}</code></td>
+      <td style="font-weight:700;">${p.name}</td>
+      <td><span class="status-pill">${p.category_name || '-'}</span></td>
+      <td style="font-weight:700; color:var(--color-primary);">${formatRupiah(p.price)}</td>
+      <td style="font-weight:700; color:var(--color-danger);">${formatRupiah(p.dynamic_hpp)}</td>
+      <td><span class="menu-card__margin-badge">+${formatRupiah(p.gross_margin)} (${p.margin_pct}%)</span></td>
       <td>
-        <button class="btn btn-outline-primary btn-sm py-0" onclick="showRecipeDetail(${p.id})">
-          <i class="bi bi-eye"></i> Detail BOM
-        </button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="filter-pill" style="padding:4px 10px;" onclick="showRecipeDetail(${p.id})" title="Lihat Takaran BOM">
+            👁️ Detail
+          </button>
+          ${isManagerOrOwner ? `
+            <button class="filter-pill" style="padding:4px 10px; color:var(--color-primary);" onclick="openEditMenuModal(${p.id})" title="Edit Menu & Resep">
+              ✏️ Edit
+            </button>
+            <button class="filter-pill" style="padding:4px 10px; color:var(--color-danger);" onclick="deleteMenu(${p.id}, '${escapeHtml(p.name)}')" title="Hapus/Arsipkan Menu">
+              🗑️
+            </button>
+          ` : ''}
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
+// View Detail Modal
 async function showRecipeDetail(productId) {
   try {
-    const res = await fetch(apiUrl(`api/products/${productId}/recipe`));
+    const res = await fetch(apiUrl(`api/products.php?id=${productId}`));
     const data = await res.json();
 
     const titleEl = document.getElementById('recipeModalTitle');
@@ -598,61 +665,310 @@ async function showRecipeDetail(productId) {
     const tbody = document.getElementById('recipeModalBody');
     if (tbody) {
       tbody.innerHTML = '';
-      data.recipes.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="fw-semibold">${r.ingredient_name}</td>
-          <td>${r.dosage} ${r.unit}</td>
-          <td>${formatRupiah(r.cost_per_unit)} / ${r.unit}</td>
-          <td class="fw-bold">${formatRupiah(r.subtotal_cost)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+      if (!data.recipes || data.recipes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--color-text-muted);">Belum ada resep bahan baku</td></tr>`;
+      } else {
+        data.recipes.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${r.ingredient_name}</strong> <small style="color:var(--color-text-muted);">(${r.ingredient_sku || ''})</small></td>
+            <td>${r.dosage} ${r.unit}</td>
+            <td>${formatRupiah(r.cost_per_unit)} / ${r.unit}</td>
+            <td style="font-weight:700;">${formatRupiah(r.subtotal_cost)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
     }
 
     const totHppEl = document.getElementById('recipeModalTotalHpp');
     if (totHppEl) totHppEl.textContent = formatRupiah(data.total_hpp);
 
-    const modalEl = document.getElementById('recipeModal');
-    if (modalEl) {
-      const modal = new bootstrap.Modal(modalEl);
-      modal.show();
-    }
+    openModal('recipeModal');
   } catch (err) {
     alert('Gagal mengambil data BOM: ' + err.message);
   }
 }
 
+// Open Modal Tambah Menu Baru
+function openCreateMenuModal() {
+  document.getElementById('menuFormId').value = '0';
+  document.getElementById('menuFormModalTitle').textContent = '➕ Tambah Menu Baru & Resep BOM';
+  document.getElementById('menuFormName').value = '';
+  document.getElementById('menuFormCode').value = '';
+  document.getElementById('menuFormPrice').value = '';
+  document.getElementById('menuFormDesc').value = '';
+
+  const container = document.getElementById('menuFormRecipeContainer');
+  if (container) {
+    container.innerHTML = '';
+    // Tambah 1 baris bahan default
+    addRecipeIngredientRow();
+  }
+
+  recalculateModalHpp();
+  openModal('menuFormModal');
+}
+
+// Open Modal Edit Menu
+async function openEditMenuModal(productId) {
+  try {
+    const res = await fetch(apiUrl(`api/products.php?id=${productId}`));
+    const data = await res.json();
+
+    document.getElementById('menuFormId').value = data.product.id;
+    document.getElementById('menuFormModalTitle').textContent = `✏️ Edit Menu: ${data.product.name}`;
+    document.getElementById('menuFormName').value = data.product.name;
+    document.getElementById('menuFormCode').value = data.product.code;
+    document.getElementById('menuFormPrice').value = Math.round(data.product.price);
+    document.getElementById('menuFormDesc').value = data.product.description || '';
+    if (document.getElementById('menuFormCategory') && data.product.category_id) {
+      document.getElementById('menuFormCategory').value = data.product.category_id;
+    }
+
+    const container = document.getElementById('menuFormRecipeContainer');
+    if (container) {
+      container.innerHTML = '';
+      if (data.recipes && data.recipes.length > 0) {
+        data.recipes.forEach(r => {
+          addRecipeIngredientRow(r.ingredient_id, r.dosage);
+        });
+      } else {
+        addRecipeIngredientRow();
+      }
+    }
+
+    recalculateModalHpp();
+    openModal('menuFormModal');
+  } catch (err) {
+    alert('Gagal mengambil data menu untuk diedit: ' + err.message);
+  }
+}
+
+// Dynamic Recipe Row Builder
+function addRecipeIngredientRow(selectedIngId = '', dosage = '') {
+  const container = document.getElementById('menuFormRecipeContainer');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'recipe-row';
+  row.style.cssText = 'display:flex; align-items:center; gap:8px; background:var(--color-surface); padding:8px 10px; border-radius:var(--radius-md); border:1px solid var(--color-border-subtle);';
+
+  // Build ingredient select options
+  let optionsHtml = '<option value="">-- Pilih Bahan Baku --</option>';
+  allIngredients.forEach(ing => {
+    const isSel = String(ing.ingredient_id) === String(selectedIngId) ? 'selected' : '';
+    optionsHtml += `<option value="${ing.ingredient_id}" data-unit="${ing.unit}" data-cost="${ing.cost_per_unit}" ${isSel}>${ing.ingredient_name} (${formatRupiah(ing.cost_per_unit)}/${ing.unit})</option>`;
+  });
+
+  row.innerHTML = `
+    <select class="form-control-native recipe-row-ing" style="flex:2;" onchange="onRecipeIngredientChange(this)" required>
+      ${optionsHtml}
+    </select>
+    <div style="display:flex; align-items:center; gap:4px; flex:1;">
+      <input type="number" class="form-control-native recipe-row-dosage" placeholder="Takaran" step="any" min="0" value="${dosage}" style="width:100%;" oninput="recalculateModalHpp()" required>
+      <span class="recipe-row-unit" style="font-size:11px; font-weight:700; color:var(--color-text-tertiary); min-width:35px;">unit</span>
+    </div>
+    <div class="recipe-row-subtotal" style="font-size:12px; font-weight:700; color:var(--color-primary); min-width:75px; text-align:right;">
+      Rp 0
+    </div>
+    <button type="button" class="btn-clear-cart" style="font-size:14px; padding:4px;" onclick="this.closest('.recipe-row').remove(); recalculateModalHpp();" title="Hapus bahan ini">
+      🗑️
+    </button>
+  `;
+
+  container.appendChild(row);
+
+  // Trigger unit update
+  const selectEl = row.querySelector('.recipe-row-ing');
+  if (selectEl) {
+    onRecipeIngredientChange(selectEl);
+  }
+}
+
+function onRecipeIngredientChange(selectEl) {
+  const row = selectEl.closest('.recipe-row');
+  if (!row) return;
+
+  const selectedOpt = selectEl.options[selectEl.selectedIndex];
+  const unit = selectedOpt ? (selectedOpt.dataset.unit || 'unit') : 'unit';
+  const unitSpan = row.querySelector('.recipe-row-unit');
+  if (unitSpan) unitSpan.textContent = unit;
+
+  recalculateModalHpp();
+}
+
+function recalculateModalHpp() {
+  const rows = document.querySelectorAll('#menuFormRecipeContainer .recipe-row');
+  let totalHpp = 0;
+
+  rows.forEach(row => {
+    const selectEl = row.querySelector('.recipe-row-ing');
+    const dosageInput = row.querySelector('.recipe-row-dosage');
+    const subtotalEl = row.querySelector('.recipe-row-subtotal');
+
+    const selectedOpt = selectEl ? selectEl.options[selectEl.selectedIndex] : null;
+    const cost = selectedOpt ? parseFloat(selectedOpt.dataset.cost || 0) : 0;
+    const dosage = dosageInput ? parseFloat(dosageInput.value || 0) : 0;
+    const subtotal = cost * dosage;
+
+    totalHpp += subtotal;
+    if (subtotalEl) {
+      subtotalEl.textContent = formatRupiah(subtotal);
+    }
+  });
+
+  totalHpp = Math.round(totalHpp);
+  const liveHppEl = document.getElementById('menuFormLiveHpp');
+  if (liveHppEl) liveHppEl.textContent = formatRupiah(totalHpp);
+
+  const priceInput = document.getElementById('menuFormPrice');
+  const price = priceInput ? parseFloat(priceInput.value || 0) : 0;
+  const grossMargin = price - totalHpp;
+  const marginPct = price > 0 ? ((grossMargin / price) * 100).toFixed(1) : 0;
+
+  const liveMarginEl = document.getElementById('menuFormLiveMargin');
+  if (liveMarginEl) {
+    liveMarginEl.textContent = `${formatRupiah(grossMargin)} (${marginPct}%)`;
+    liveMarginEl.style.color = grossMargin >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+  }
+}
+
+// Submit Create / Edit Menu
+async function submitMenuForm() {
+  const id = parseInt(document.getElementById('menuFormId').value || '0', 10);
+  const name = document.getElementById('menuFormName').value.trim();
+  const categoryId = document.getElementById('menuFormCategory').value;
+  const code = document.getElementById('menuFormCode').value.trim();
+  const price = parseFloat(document.getElementById('menuFormPrice').value || '0');
+  const description = document.getElementById('menuFormDesc').value.trim();
+
+  if (!name) {
+    alert('Nama menu wajib diisi!');
+    return;
+  }
+
+  // Collect recipe items
+  const recipes = [];
+  const rows = document.querySelectorAll('#menuFormRecipeContainer .recipe-row');
+  rows.forEach(row => {
+    const ingId = parseInt(row.querySelector('.recipe-row-ing').value || '0', 10);
+    const dosage = parseFloat(row.querySelector('.recipe-row-dosage').value || '0');
+    if (ingId > 0 && dosage > 0) {
+      recipes.push({ ingredient_id: ingId, dosage: dosage });
+    }
+  });
+
+  const action = id > 0 ? 'update' : 'create';
+  const payload = {
+    id: id,
+    name: name,
+    category_id: categoryId,
+    code: code,
+    price: price,
+    description: description,
+    recipes: recipes
+  };
+
+  try {
+    const res = await fetch(apiUrl(`api/products.php?action=${action}`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`Gagal: ${data.error}`);
+      return;
+    }
+
+    alert('✅ ' + data.message);
+    closeModal('menuFormModal');
+
+    // Reload products & menu grid
+    await loadProducts();
+  } catch (err) {
+    alert('Terjadi kesalahan server: ' + err.message);
+  }
+}
+
+// Delete Menu
+async function deleteMenu(productId, menuName) {
+  if (!confirm(`Apakah Anda yakin ingin menghapus/menonaktifkan menu "${menuName}"?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(apiUrl('api/products.php?action=delete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: productId })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`Gagal: ${data.error}`);
+      return;
+    }
+
+    alert('✅ ' + data.message);
+    await loadProducts();
+  } catch (err) {
+    alert('Terjadi kesalahan: ' + err.message);
+  }
+}
+
 // ==========================================
-// F04 & F05: INVENTORI & CRITICAL ALERTS
+// F04 & F05: INVENTORI CRUD (TABLE & MODALS)
 // ==========================================
 async function loadInventory() {
   const filterEl = document.getElementById('inventoryOutletFilter');
   const outletId = filterEl ? filterEl.value : (currentUser.outlet_id || 1);
 
   try {
-    const res = await fetch(apiUrl(`api/inventory?outlet_id=${outletId}`));
+    const res = await fetch(apiUrl(`api/inventory.php?outlet_id=${outletId}`));
     allIngredients = await res.json();
 
     const tbody = document.getElementById('inventoryTableBody');
     if (tbody) {
       tbody.innerHTML = '';
+      const isWarehouseOrManager = ['owner', 'manager', 'warehouse'].includes(currentUser.role);
+      const isManagerOrOwner = ['owner', 'manager'].includes(currentUser.role);
+
       allIngredients.forEach(ing => {
         const isCritical = parseInt(ing.is_critical, 10) === 1;
         const tr = document.createElement('tr');
-        if (isCritical) tr.className = 'table-danger';
+        if (isCritical) tr.style.backgroundColor = 'var(--color-danger-bg)';
 
         tr.innerHTML = `
-          <td><span class="badge bg-light text-dark border">${ing.sku}</span></td>
-          <td class="fw-semibold">${ing.ingredient_name}</td>
+          <td><code>${ing.sku}</code></td>
+          <td style="font-weight:600;">${ing.ingredient_name}</td>
           <td>${ing.unit}</td>
           <td>${formatRupiah(ing.cost_per_unit)} / ${ing.unit}</td>
-          <td class="fw-bold ${isCritical ? 'text-danger' : 'text-dark'}">${ing.current_stock} ${ing.unit}</td>
-          <td class="text-muted">${ing.min_stock_alert} ${ing.unit}</td>
+          <td style="font-weight:700; color:${isCritical ? 'var(--color-danger)' : 'var(--color-text-primary)'};">${ing.current_stock} ${ing.unit}</td>
+          <td style="color:var(--color-text-muted);">${ing.min_stock_alert} ${ing.unit}</td>
           <td>
             ${isCritical 
-              ? '<span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> STOK KRITIS</span>' 
-              : '<span class="badge bg-success">Aman</span>'}
+              ? '<span class="status-pill" style="background:var(--color-danger-bg); color:var(--color-danger); border-color:var(--color-danger-border);">⚠️ STOK KRITIS</span>' 
+              : '<span class="status-pill" style="background:var(--color-success-bg); color:var(--color-success); border-color:var(--color-success-border);">Aman</span>'}
+          </td>
+          <td>
+            <div style="display:flex; gap:6px; align-items:center;">
+              ${isWarehouseOrManager ? `
+                <button class="filter-pill" style="padding:4px 10px; color:var(--color-success);" onclick="openRestockForIngredient(${ing.ingredient_id})" title="Catat Restok">
+                  📥 Restok
+                </button>
+                <button class="filter-pill" style="padding:4px 10px; color:var(--color-primary);" onclick="openEditIngredientModal(${ing.ingredient_id})" title="Edit Bahan & Opname">
+                  ✏️ Edit
+                </button>
+              ` : ''}
+              ${isManagerOrOwner ? `
+                <button class="filter-pill" style="padding:4px 10px; color:var(--color-danger);" onclick="deleteIngredient(${ing.ingredient_id}, '${escapeHtml(ing.ingredient_name)}')" title="Hapus Bahan Baku">
+                  🗑️
+                </button>
+              ` : ''}
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
@@ -663,6 +979,167 @@ async function loadInventory() {
   } catch (err) {
     console.error('Gagal mengambil inventori:', err);
   }
+}
+
+// Modal Tambah Bahan Baku Baru
+function openCreateIngredientModal() {
+  const form = document.getElementById('createIngredientForm');
+  if (form) form.reset();
+  openModal('createIngredientModal');
+}
+
+async function submitCreateIngredient() {
+  const name = document.getElementById('newIngName').value.trim();
+  const sku = document.getElementById('newIngSku').value.trim();
+  const unit = document.getElementById('newIngUnit').value;
+  const cost = parseFloat(document.getElementById('newIngCost').value || '0');
+  const minAlert = parseFloat(document.getElementById('newIngMinAlert').value || '100');
+  const initialStock = parseFloat(document.getElementById('newIngInitialStock').value || '0');
+  const filterEl = document.getElementById('inventoryOutletFilter');
+  const outletId = filterEl ? parseInt(filterEl.value, 10) : currentUser.outlet_id;
+
+  if (!name) {
+    alert('Nama bahan baku wajib diisi!');
+    return;
+  }
+
+  try {
+    const res = await fetch(apiUrl('api/inventory.php?action=create'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        sku: sku,
+        unit: unit,
+        cost_per_unit: cost,
+        min_stock_alert: minAlert,
+        initial_stock: initialStock,
+        outlet_id: outletId,
+        user_id: currentUser.id
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`Gagal: ${data.error}`);
+      return;
+    }
+
+    alert('✅ ' + data.message);
+    closeModal('createIngredientModal');
+
+    await loadInventory();
+    await loadProducts();
+    await loadCriticalAlerts();
+  } catch (err) {
+    alert('Terjadi kesalahan: ' + err.message);
+  }
+}
+
+// Modal Edit Bahan Baku & Opname
+function openEditIngredientModal(ingId) {
+  const ing = allIngredients.find(i => parseInt(i.ingredient_id, 10) === parseInt(ingId, 10));
+  if (!ing) return;
+
+  document.getElementById('editIngId').value = ing.ingredient_id;
+  document.getElementById('editIngName').value = ing.ingredient_name;
+  document.getElementById('editIngSku').value = ing.sku;
+  document.getElementById('editIngUnit').value = ing.unit;
+  document.getElementById('editIngCost').value = Math.round(ing.cost_per_unit);
+  document.getElementById('editIngMinAlert').value = Math.round(ing.min_stock_alert);
+  document.getElementById('editIngCurrentStock').value = ing.current_stock;
+  document.getElementById('editIngNotes').value = '';
+
+  openModal('editIngredientModal');
+}
+
+async function submitEditIngredient() {
+  const id = parseInt(document.getElementById('editIngId').value, 10);
+  const name = document.getElementById('editIngName').value.trim();
+  const sku = document.getElementById('editIngSku').value.trim();
+  const unit = document.getElementById('editIngUnit').value.trim();
+  const cost = parseFloat(document.getElementById('editIngCost').value || '0');
+  const minAlert = parseFloat(document.getElementById('editIngMinAlert').value || '0');
+  const currentStock = parseFloat(document.getElementById('editIngCurrentStock').value || '0');
+  const notes = document.getElementById('editIngNotes').value.trim();
+  const filterEl = document.getElementById('inventoryOutletFilter');
+  const outletId = filterEl ? parseInt(filterEl.value, 10) : currentUser.outlet_id;
+
+  if (!name || !unit) {
+    alert('Nama dan satuan bahan baku wajib diisi!');
+    return;
+  }
+
+  try {
+    const res = await fetch(apiUrl('api/inventory.php?action=update'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: id,
+        name: name,
+        sku: sku,
+        unit: unit,
+        cost_per_unit: cost,
+        min_stock_alert: minAlert,
+        outlet_id: outletId,
+        current_stock: currentStock,
+        adjustment_notes: notes || 'Penyesuaian stok opname',
+        user_id: currentUser.id
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`Gagal: ${data.error}`);
+      return;
+    }
+
+    alert('✅ ' + data.message);
+    closeModal('editIngredientModal');
+
+    await loadInventory();
+    await loadProducts();
+    await loadCriticalAlerts();
+  } catch (err) {
+    alert('Terjadi kesalahan: ' + err.message);
+  }
+}
+
+// Delete Bahan Baku
+async function deleteIngredient(ingId, ingName) {
+  if (!confirm(`Hapus bahan baku "${ingName}" dari sistem?\n(Perhatian: Hanya dapat dihapus jika tidak sedang digunakan di resep menu)`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(apiUrl('api/inventory.php?action=delete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: ingId })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`Gagal: ${data.error}`);
+      return;
+    }
+
+    alert('✅ ' + data.message);
+    await loadInventory();
+    await loadProducts();
+    await loadCriticalAlerts();
+  } catch (err) {
+    alert('Terjadi kesalahan: ' + err.message);
+  }
+}
+
+function openRestockForIngredient(ingId) {
+  const select = document.getElementById('restockIngredientSelect');
+  if (select) {
+    select.value = ingId;
+    onRestockIngredientChange();
+  }
+  openModal('restockModal');
 }
 
 function populateRestockSelect() {
@@ -722,7 +1199,7 @@ async function submitRestock() {
   }
 
   try {
-    const res = await fetch(apiUrl('api/inventory/restock'), {
+    const res = await fetch(apiUrl('api/inventory.php?action=restock'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -742,19 +1219,15 @@ async function submitRestock() {
     }
 
     alert('✅ ' + data.message);
-    const modalEl = document.getElementById('restockModal');
-    if (modalEl) {
-      const modal = bootstrap.Modal.getInstance(modalEl);
-      if (modal) modal.hide();
-    }
+    closeModal('restockModal');
 
     if (qtyInput) qtyInput.value = '';
     if (costInput) costInput.value = '';
     if (notesInput) notesInput.value = '';
 
-    loadInventory();
-    loadProducts();
-    loadCriticalAlerts();
+    await loadInventory();
+    await loadProducts();
+    await loadCriticalAlerts();
   } catch (err) {
     alert('Terjadi kesalahan: ' + err.message);
   }
@@ -763,7 +1236,7 @@ async function submitRestock() {
 // Critical Alerts Tab (F05)
 async function loadCriticalAlerts() {
   try {
-    const res = await fetch(apiUrl('api/inventory/critical-alerts'));
+    const res = await fetch(apiUrl('api/inventory.php?action=critical-alerts'));
     const alerts = await res.json();
 
     const badge = document.getElementById('alertBadgeCount');
@@ -774,68 +1247,60 @@ async function loadCriticalAlerts() {
 
     if (alerts.length === 0) {
       container.innerHTML = `
-        <div class="text-center py-5 text-success">
-          <i class="bi bi-check-circle-fill display-3 d-block mb-3"></i>
-          <h5>Semua Stok Bahan Baku Dalam Kondisi Aman!</h5>
-          <p class="text-muted">Tidak ada bahan baku yang berada di bawah ambang batas minimum alert.</p>
+        <div style="text-align:center; padding:40px 20px; color:var(--color-success);">
+          <div style="font-size:42px; margin-bottom:12px;">✅</div>
+          <h3>Semua Stok Bahan Baku Aman</h3>
+          <p style="color:var(--color-text-muted); font-size:13px;">Tidak ada bahan baku yang berada di bawah ambang batas minimum alert.</p>
         </div>
       `;
       return;
     }
 
     container.innerHTML = `
-      <div class="alert alert-warning mb-3">
-        <i class="bi bi-bell-fill"></i> Terdapat <strong>${alerts.length}</strong> bahan baku yang memerlukan pengadaan restok segera!
+      <div style="background:var(--color-warning-bg); border:1px solid var(--color-warning-border); border-radius:var(--radius-md); padding:12px 16px; margin-bottom:16px; font-size:13px; color:var(--color-warning);">
+        🔔 Terdapat <strong>${alerts.length}</strong> bahan baku yang memerlukan pengadaan restok segera!
       </div>
-      <div class="table-responsive">
-        <table class="table table-bordered align-middle">
-          <thead class="table-danger">
-            <tr>
-              <th>Cabang Outlet</th>
-              <th>SKU</th>
-              <th>Bahan Baku</th>
-              <th>Sisa Stok Saat Ini</th>
-              <th>Ambang Batas Minimum</th>
-              <th>Aksi Penanganan</th>
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="background:var(--color-surface); border-bottom:1px solid var(--color-border); text-align:left;">
+            <th style="padding:10px;">Cabang Outlet</th>
+            <th style="padding:10px;">SKU</th>
+            <th style="padding:10px;">Bahan Baku</th>
+            <th style="padding:10px;">Sisa Stok</th>
+            <th style="padding:10px;">Batas Minimum</th>
+            <th style="padding:10px;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${alerts.map(a => `
+            <tr style="border-bottom:1px solid var(--color-border);">
+              <td style="padding:10px; font-weight:700;">${a.outlet_name}</td>
+              <td style="padding:10px;"><code>${a.sku}</code></td>
+              <td style="padding:10px; color:var(--color-danger); font-weight:600;">${a.ingredient_name}</td>
+              <td style="padding:10px; color:var(--color-danger); font-weight:700;">${a.current_stock} ${a.unit}</td>
+              <td style="padding:10px;">${a.min_stock_alert} ${a.unit}</td>
+              <td style="padding:10px;">
+                <button class="filter-pill" onclick="handleAlertRestock('${a.outlet_id}', '${a.ingredient_id}')">
+                  📥 Restok
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${alerts.map(a => `
-              <tr>
-                <td class="fw-bold">${a.outlet_name}</td>
-                <td><span class="badge bg-light text-dark border">${a.sku}</span></td>
-                <td class="fw-semibold text-danger">${a.ingredient_name}</td>
-                <td class="fw-bold text-danger">${a.current_stock} ${a.unit}</td>
-                <td>${a.min_stock_alert} ${a.unit}</td>
-                <td>
-                  <button class="btn btn-primary btn-sm py-0" onclick="handleAlertRestock('${a.outlet_id}')">
-                    <i class="bi bi-box-arrow-in-down"></i> Restok Sekarang
-                  </button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
+          `).join('')}
+        </tbody>
+      </table>
     `;
   } catch (err) {
     console.error('Gagal mengambil data alert:', err);
   }
 }
 
-function handleAlertRestock(outletId) {
-  const invTabBtn = document.getElementById('inv-list-tab');
-  if (invTabBtn) {
-    bootstrap.Tab.getOrCreateInstance(invTabBtn).show();
-  }
+function handleAlertRestock(outletId, ingredientId) {
   const filter = document.getElementById('inventoryOutletFilter');
-  if (filter) {
-    filter.value = outletId;
-  }
+  if (filter) filter.value = outletId;
   loadInventory();
-  const restockModalEl = document.getElementById('restockModal');
-  if (restockModalEl) {
-    const modal = new bootstrap.Modal(restockModalEl);
-    modal.show();
+  if (ingredientId) {
+    openRestockForIngredient(ingredientId);
+  } else {
+    openModal('restockModal');
   }
 }

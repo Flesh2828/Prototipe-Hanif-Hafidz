@@ -2,6 +2,7 @@
 /**
  * Halaman Utama & Autentikasi RBAC (F01)
  * Sesuai PRD KopiKita Bagian 7.1 (PHP Native 8.x & MySQL XAMPP)
+ * Pure Semantic HTML5 & CSS3 (Figma: ui kopikita)
  */
 require_once __DIR__ . '/includes/auth.php';
 
@@ -37,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($username) && !empty($password)) {
         $user = login_user($username, $password);
         if ($user) {
-            // Redirect sesuai peran utama
             if (in_array($user['role'], ['cashier'])) {
                 header('Location: pos.php');
             } elseif (in_array($user['role'], ['warehouse'])) {
@@ -63,207 +63,196 @@ $currentUser = current_user();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KopiKita - Autentikasi RBAC & Portal Masuk (F01)</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="public/style.css">
+  <link rel="stylesheet" href="public/css/style.css">
 </head>
-<body class="bg-light">
+<body class="app-shell" style="overflow-y:auto;">
 
   <?php include __DIR__ . '/includes/navbar.php'; ?>
 
-  <div class="container py-4">
+  <main class="page-container" style="max-width:1100px;">
     <?php if ($error): ?>
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i><?= htmlspecialchars($error) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      <div class="native-alert native-alert--danger">
+        <span>⚠️</span> <?= htmlspecialchars($error) ?>
       </div>
     <?php endif; ?>
 
     <?php if ($success): ?>
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle-fill me-2"></i><?= htmlspecialchars($success) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      <div class="native-alert native-alert--success">
+        <span>✅</span> <?= htmlspecialchars($success) ?>
       </div>
     <?php endif; ?>
 
-    <div class="row g-4 justify-content-center">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:24px;">
       <!-- Kolom Kiri: Sesi Aktif & Form Login -->
-      <div class="col-lg-5">
-        <div class="card shadow-sm border-0 mb-4">
-          <div class="card-header bg-dark text-white py-3">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-person-badge-fill text-warning"></i> Sesi Pengguna Aktif</h5>
-          </div>
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-3">
-              <div class="rounded-circle bg-warning p-3 text-dark me-3">
-                <i class="bi bi-person-fill fs-2"></i>
+      <section>
+        <!-- Kartu Sesi Aktif -->
+        <div class="data-card">
+          <header class="data-card__header">
+            <h3>👤 Sesi Pengguna Aktif</h3>
+          </header>
+          <div style="padding:20px;">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px;">
+              <div class="user-avatar-circle" style="width:48px; height:48px; font-size:20px;">
+                <?= strtoupper(substr($currentUser['username'] ?? 'U', 0, 1)) ?>
               </div>
               <div>
-                <h5 class="fw-bold mb-0"><?= htmlspecialchars($currentUser['full_name']) ?></h5>
-                <span class="badge bg-primary text-uppercase"><?= htmlspecialchars($currentUser['role']) ?></span>
-                <span class="badge bg-secondary"><?= htmlspecialchars($currentUser['outlet_name']) ?></span>
+                <h3 style="font-size:16px; font-weight:700; color:var(--color-text-primary); margin-bottom:2px;"><?= htmlspecialchars($currentUser['full_name']) ?></h3>
+                <span class="status-pill" style="background:var(--color-primary-light); color:var(--color-primary-dark); border-color:transparent;">
+                  Role: <?= strtoupper($currentUser['role']) ?>
+                </span>
+                <span class="status-pill" style="margin-left:4px;">
+                  📍 <?= htmlspecialchars($currentUser['outlet_name']) ?>
+                </span>
               </div>
             </div>
 
-            <div class="d-grid gap-2">
-              <a href="pos.php" class="btn btn-primary fw-bold">
-                <i class="bi bi-calculator"></i> Buka Antarmuka POS Kasir (F02)
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <a href="pos.php" class="btn-checkout-primary" style="text-align:center; text-decoration:none;">
+                🧾 Buka Antarmuka POS Kasir (F02)
               </a>
-              <a href="dashboard.php" class="btn btn-outline-dark">
-                <i class="bi bi-graph-up-arrow"></i> Buka Dashboard Laba-Rugi (F06)
+              <a href="dashboard.php" class="btn-add-item" style="padding:10px; text-align:center; text-decoration:none;">
+                📊 Buka Dashboard Laba-Rugi (F06)
               </a>
-              <a href="inventory.php" class="btn btn-outline-secondary">
-                <i class="bi bi-box-seam"></i> Buka Inventori & Stok Kritis (F04/F05)
+              <a href="inventory.php" class="btn-add-item" style="padding:10px; text-align:center; text-decoration:none;">
+                📦 Buka Inventori & Stok Kritis (F04/F05)
               </a>
             </div>
           </div>
         </div>
 
         <!-- Form Login Manual -->
-        <div class="card shadow-sm border-0">
-          <div class="card-header bg-white py-3">
-            <h6 class="mb-0 fw-bold"><i class="bi bi-box-arrow-in-right text-primary"></i> Login Manual Pengguna</h6>
-          </div>
-          <div class="card-body">
-            <form method="POST" action="index.php">
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Username</label>
-                <input type="text" name="username" class="form-control" placeholder="Contoh: owner, kasir1, gudang1" required>
+        <div class="data-card">
+          <header class="data-card__header">
+            <h3>🔐 Login Manual Pengguna</h3>
+          </header>
+          <div style="padding:20px;">
+            <form method="POST" action="index.php" style="display:flex; flex-direction:column; gap:14px;">
+              <div class="form-group-custom">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" class="form-control-native" placeholder="Contoh: owner, kasir1, gudang1" required>
               </div>
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Password</label>
-                <input type="password" name="password" class="form-control" value="password123" required>
-                <small class="text-muted">Password default pengujian: <code>password123</code></small>
+
+              <div class="form-group-custom">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-control-native" value="password123" required>
+                <small style="color:var(--color-text-muted); font-size:11px;">Password default pengujian: <code>password123</code></small>
               </div>
-              <button type="submit" class="btn btn-dark w-100 fw-bold">
-                <i class="bi bi-box-arrow-in-right"></i> Masuk Sistem
+
+              <button type="submit" class="btn-checkout-primary" style="margin-top:6px;">
+                🚪 Masuk ke Sistem
               </button>
             </form>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Kolom Kanan: Simulasi 6 Peran Pengguna & RBAC Matrix -->
-      <div class="col-lg-7">
-        <div class="card shadow-sm border-0 mb-4">
-          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-lightning-charge-fill text-warning"></i> 1-Click Simulasi 6 Peran Pengguna</h5>
-            <span class="badge bg-success">F01 PRD Compliant</span>
-          </div>
-          <div class="card-body">
-            <p class="small text-muted mb-3">Klik peran di bawah untuk menguji pembatasan wewenang (RBAC) secara instan:</p>
-            <div class="row g-2">
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=owner" class="btn btn-outline-primary text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-person-check-fill"></i> 1. Owner (Hafidz)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Akses penuh seluruh outlet & analisa laba</small>
-                </a>
-              </div>
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=manager" class="btn btn-outline-success text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-briefcase-fill"></i> 2. Manajer (Hanif)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Kelola cabang Kaliurang, BOM & stok</small>
-                </a>
-              </div>
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=cashier" class="btn btn-outline-warning text-dark text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-calculator"></i> 3. Kasir (Dzaky)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Akses POS transaksi cabang Kaliurang</small>
-                </a>
-              </div>
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=barista" class="btn btn-outline-info text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-cup-hot-fill"></i> 4. Barista (Rafie)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Melihat panduan takaran BOM resep</small>
-                </a>
-              </div>
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=warehouse" class="btn btn-outline-secondary text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-boxes"></i> 5. Gudang (Imad)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Akses mutasi stok & restok supplier</small>
-                </a>
-              </div>
-              <div class="col-sm-6">
-                <a href="index.php?switch_role=accountant" class="btn btn-outline-danger text-start w-100 p-2">
-                  <div class="fw-bold"><i class="bi bi-file-earmark-bar-graph"></i> 6. Auditor (Siti)</div>
-                  <small class="text-muted d-block" style="font-size: 0.75rem;">Audit laporan keuangan read-only</small>
-                </a>
-              </div>
-            </div>
+      <!-- Kolom Kanan: 1-Click Simulasi 6 Peran & Matriks RBAC -->
+      <section>
+        <!-- 1-Click Role Switcher -->
+        <div class="data-card">
+          <header class="data-card__header">
+            <h3>⚡ 1-Click Simulasi 6 Peran Pengguna</h3>
+            <span class="status-pill" style="background:var(--color-success-bg); color:var(--color-success);">F01 RBAC</span>
+          </header>
+          <div style="padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <a href="index.php?switch_role=owner" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-primary-dark); font-size:13px;">1. Owner (Hafidz)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Akses penuh agregat seluruh cabang</div>
+            </a>
+
+            <a href="index.php?switch_role=manager" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-success); font-size:13px;">2. Manajer (Hanif)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Kelola cabang 1, BOM resep & stok</div>
+            </a>
+
+            <a href="index.php?switch_role=cashier" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-accent); font-size:13px;">3. Kasir (Dzaky)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Akses transaksi POS kasir</div>
+            </a>
+
+            <a href="index.php?switch_role=barista" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-info); font-size:13px;">4. Barista (Rafie)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Melihat panduan takaran resep</div>
+            </a>
+
+            <a href="index.php?switch_role=warehouse" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-text-primary); font-size:13px;">5. Gudang (Imad)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Akses mutasi stok & restok</div>
+            </a>
+
+            <a href="index.php?switch_role=accountant" class="outlet-switcher-card" style="margin-bottom:0; text-decoration:none;">
+              <strong style="color:var(--color-danger); font-size:13px;">6. Auditor (Siti)</strong>
+              <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:2px;">Audit laporan keuangan read-only</div>
+            </a>
           </div>
         </div>
 
         <!-- Matriks RBAC PRD -->
-        <div class="card shadow-sm border-0">
-          <div class="card-header bg-white py-3 fw-bold">
-            <i class="bi bi-shield-lock-fill text-primary"></i> Matriks Hak Akses RBAC (PRD KopiKita)
-          </div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-sm table-bordered align-middle mb-0 text-center">
-                <thead class="table-light">
-                  <tr>
-                    <th class="text-start">Peran Pengguna</th>
-                    <th>POS Kasir</th>
-                    <th>Inventori & Restok</th>
-                    <th>Resep BOM & HPP</th>
-                    <th>Dashboard Laba-Rugi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="text-start fw-bold">Owner</td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Konsolidasi</td>
-                  </tr>
-                  <tr>
-                    <td class="text-start fw-bold">Manajer Outlet</td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-success"><i class="bi bi-check-circle-fill"></i></td>
-                    <td class="text-primary">Cabang Sendiri</td>
-                  </tr>
-                  <tr>
-                    <td class="text-start fw-bold">Kasir</td>
-                    <td class="text-success fw-bold text-primary"><i class="bi bi-check-circle-fill"></i> Akses Utama</td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                  </tr>
-                  <tr>
-                    <td class="text-start fw-bold">Barista</td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                    <td class="text-warning">Lihat Stok</td>
-                    <td class="text-warning">Lihat Takaran</td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                  </tr>
-                  <tr>
-                    <td class="text-start fw-bold">Staf Gudang</td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                    <td class="text-success fw-bold text-primary"><i class="bi bi-check-circle-fill"></i> Kelola Mutasi</td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                    <td class="text-danger"><i class="bi bi-x-circle"></i></td>
-                  </tr>
-                  <tr>
-                    <td class="text-start fw-bold">Akuntan / Auditor</td>
-                    <td class="text-secondary">Read-only</td>
-                    <td class="text-secondary">Read-only</td>
-                    <td class="text-secondary">Read-only</td>
-                    <td class="text-success fw-bold text-success"><i class="bi bi-check-circle-fill"></i> Audit</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="data-card">
+          <header class="data-card__header">
+            <h3>🛡️ Matriks Hak Akses RBAC (PRD KopiKita)</h3>
+          </header>
+          <div class="table-responsive">
+            <table class="native-table" style="text-align:center;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Peran Pengguna</th>
+                  <th>POS</th>
+                  <th>Inventori</th>
+                  <th>Resep BOM</th>
+                  <th>Laba-Rugi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left; font-weight:700;">Owner</td>
+                  <td>✅</td>
+                  <td>✅</td>
+                  <td>✅</td>
+                  <td><span class="status-pill" style="background:var(--color-success-bg); color:var(--color-success);">Konsolidasi</span></td>
+                </tr>
+                <tr>
+                  <td style="text-align:left; font-weight:700;">Manajer Outlet</td>
+                  <td>✅</td>
+                  <td>✅</td>
+                  <td>✅</td>
+                  <td><span class="status-pill">Cabang</span></td>
+                </tr>
+                <tr>
+                  <td style="text-align:left; font-weight:700; color:var(--color-primary);">Kasir</td>
+                  <td><strong style="color:var(--color-primary);">✅ Utama</strong></td>
+                  <td>❌</td>
+                  <td>❌</td>
+                  <td>❌</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left; font-weight:700;">Barista</td>
+                  <td>❌</td>
+                  <td>👁️ Lihat</td>
+                  <td>👁️ Lihat</td>
+                  <td>❌</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left; font-weight:700;">Staf Gudang</td>
+                  <td>❌</td>
+                  <td><strong style="color:var(--color-success);">✅ Kelola</strong></td>
+                  <td>❌</td>
+                  <td>❌</td>
+                </tr>
+                <tr>
+                  <td style="text-align:left; font-weight:700;">Akuntan / Auditor</td>
+                  <td>👁️ Read-only</td>
+                  <td>👁️ Read-only</td>
+                  <td>👁️ Read-only</td>
+                  <td><strong style="color:var(--color-success);">✅ Audit</strong></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-      </div>
+      </section>
     </div>
-  </div>
+  </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-

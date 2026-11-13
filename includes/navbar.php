@@ -1,6 +1,7 @@
 <?php
 /**
- * Shared Navbar KopiKita Multi-Outlet System
+ * Shared Top Navigation Bar KopiKita (Pure Semantic HTML5 & CSS3)
+ * Berdasarkan Figma "ui kopikita" TopNavBar Blueprint
  */
 if (!isset($currentUser)) {
     $currentUser = current_user() ?? [
@@ -15,7 +16,7 @@ if (!isset($currentUser)) {
 
 $activePage = basename($_SERVER['PHP_SELF']);
 
-// Ambil jumlah alert stok kritis untuk badge
+// Ambil jumlah alert stok kritis
 try {
     $db = getDb();
     $alertStmt = $db->query('
@@ -29,126 +30,114 @@ try {
     $alertCount = 0;
 }
 ?>
-<!-- Top Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
-  <div class="container-fluid px-3">
-    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="pos.php">
-      <span class="brand-badge"><i class="bi bi-cup-hot-fill text-warning"></i></span>
-      <span>KopiKita <small class="text-secondary fw-normal fs-6">| Multi-Outlet System (PHP Native & MySQL)</small></span>
+<!-- Top Navigation Header -->
+<header class="top-navbar">
+  <div class="top-navbar__left">
+    <div class="brand-title">
+      <span class="brand-badge">☕</span>
+      <span>KopiKita <small>| Multi-Outlet System</small></span>
+    </div>
+
+    <nav class="top-nav-links" aria-label="Navigasi Halaman Utama">
+      <a href="pos.php" class="top-nav-link <?= $activePage === 'pos.php' ? 'active' : '' ?>">POS Kasir</a>
+      <a href="dashboard.php" class="top-nav-link <?= $activePage === 'dashboard.php' ? 'active' : '' ?>">Laba-Rugi</a>
+      <a href="recipes.php" class="top-nav-link <?= $activePage === 'recipes.php' ? 'active' : '' ?>">Resep & BOM</a>
+      <a href="inventory.php" class="top-nav-link <?= $activePage === 'inventory.php' ? 'active' : '' ?>">Inventori</a>
+      <a href="index.php" class="top-nav-link <?= $activePage === 'index.php' ? 'active' : '' ?>">Portal RBAC</a>
+    </nav>
+  </div>
+
+  <div class="top-navbar__right">
+    <span class="status-pill">
+      <span class="dot dot--online"></span> Online
+    </span>
+
+    <span class="status-pill">
+      Register #01
+    </span>
+
+    <a href="inventory.php#alertsTab" class="btn-bell" title="Peringatan Stok Kritis">
+      🔔
+      <span class="badge-count" id="alertBadgeCount"><?= $alertCount ?></span>
     </a>
 
-    <div class="d-flex align-items-center gap-3 ms-auto">
-      <!-- Role & Outlet Switcher -->
-      <div class="d-flex align-items-center bg-secondary bg-opacity-25 px-3 py-1 rounded-pill">
-        <i class="bi bi-geo-alt-fill text-danger me-1"></i>
-        <span id="currentOutletDisplay" class="fw-semibold text-white me-3"><?= htmlspecialchars($currentUser['outlet_name'] ?? 'Kaliurang') ?></span>
-        <span class="badge bg-warning text-dark me-2" id="currentRoleBadge">Role: <?= strtoupper($currentUser['role'] ?? 'OWNER') ?></span>
-        <button class="btn btn-sm btn-outline-light py-0 px-2 rounded-pill" data-bs-toggle="modal" data-bs-target="#userSwitchModal">
-          <i class="bi bi-person-gear"></i> Ganti Role
-        </button>
+    <div class="user-profile-badge" onclick="openModal('userSwitchModal')" title="Klik untuk ganti peran">
+      <div class="user-avatar-circle">
+        <?= strtoupper(substr($currentUser['username'] ?? 'U', 0, 1)) ?>
       </div>
-
-      <a href="inventory.php#alertsTab" class="btn btn-warning position-relative btn-sm">
-        <i class="bi bi-bell-fill"></i>
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="alertBadgeCount"><?= $alertCount ?></span>
-      </a>
-
-      <?php if (is_logged_in()): ?>
-        <a href="index.php?logout=1" class="btn btn-outline-danger btn-sm" title="Keluar">
-          <i class="bi bi-box-arrow-right"></i>
-        </a>
-      <?php endif; ?>
+      <div style="line-height:1.2;">
+        <div style="font-size:12px; font-weight:700;" id="currentRoleBadge">Role: <?= strtoupper($currentUser['role']) ?></div>
+        <div style="font-size:10px; color:var(--color-accent-sand);" id="currentOutletDisplay"><?= htmlspecialchars($currentUser['outlet_name']) ?></div>
+      </div>
     </div>
-  </div>
-</nav>
 
-<!-- Sub Nav Tabs (Modular Navigation) -->
-<div class="container-fluid pt-3">
-  <ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm gap-2" id="navTabs">
-    <li class="nav-item">
-      <a class="nav-link <?= $activePage === 'pos.php' ? 'active' : '' ?>" href="pos.php">
-        <i class="bi bi-calculator"></i> F02: POS Kasir
+    <?php if (is_logged_in()): ?>
+      <a href="index.php?logout=1" class="top-nav-link" style="color:var(--color-danger); padding:6px 8px;" title="Keluar">
+        🚪 Keluar
       </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <?= $activePage === 'dashboard.php' ? 'active' : '' ?>" href="dashboard.php">
-        <i class="bi bi-graph-up-arrow"></i> F06: Dashboard Laba-Rugi
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <?= $activePage === 'recipes.php' ? 'active' : '' ?>" href="recipes.php">
-        <i class="bi bi-journal-text"></i> F03: Resep & HPP Dinamis
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <?= $activePage === 'inventory.php' ? 'active' : '' ?>" href="inventory.php">
-        <i class="bi bi-box-seam"></i> F04/F05: Inventori & Stok Kritis
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <?= $activePage === 'index.php' ? 'active' : '' ?>" href="index.php">
-        <i class="bi bi-shield-check"></i> F01: RBAC & Portal Login
-      </a>
-    </li>
-  </ul>
-</div>
+    <?php endif; ?>
+  </div>
+</header>
 
 <!-- MODAL: GANTI ROLE PENGGUNA (RBAC SIMULATOR) -->
-<div class="modal fade" id="userSwitchModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title fw-bold"><i class="bi bi-people-fill"></i> Pilih Simulasi Pengguna & Hak Akses (RBAC)</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="small text-muted">Sesuai Dokumen PRD Bagian 3: Hak akses dibatasi berdasarkan peran dan Outlet ID penugasan.</p>
-        <div class="list-group">
-          <a href="index.php?switch_role=owner" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-primary">1. Owner / Pemilik Usaha (Hafidz)</h6>
-              <span class="badge bg-primary">Full Agregat</span>
-            </div>
-            <small class="text-muted">Melihat dashboard seluruh outlet, omzet, HPP, margin laba bersih.</small>
-          </a>
-          <a href="index.php?switch_role=manager" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-success">2. Manajer Outlet (Hanif)</h6>
-              <span class="badge bg-success">Cabang 1</span>
-            </div>
-            <small class="text-muted">Mengelola BOM, inventori cabang Kaliurang, restok dan staf.</small>
-          </a>
-          <a href="index.php?switch_role=cashier" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-warning text-dark">3. Kasir (Dzaky)</h6>
-              <span class="badge bg-warning text-dark">POS Kasir</span>
-            </div>
-            <small class="text-muted">Memasukkan pesanan, pembayaran tunai/QRIS, cetak nota thermal.</small>
-          </a>
-          <a href="index.php?switch_role=barista" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-info">4. Barista (Rafie)</h6>
-              <span class="badge bg-info">Antrean & Resep</span>
-            </div>
-            <small class="text-muted">Melihat antrean pesanan dan panduan gramasi resep.</small>
-          </a>
-          <a href="index.php?switch_role=warehouse" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-secondary">5. Staf Gudang (Imad)</h6>
-              <span class="badge bg-secondary">Inventori</span>
-            </div>
-            <small class="text-muted">Mencatat mutasi barang masuk, opname, dan menindaklanjuti alert stok kritis.</small>
-          </a>
-          <a href="index.php?switch_role=accountant" class="list-group-item list-group-item-action">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold text-danger">6. Akuntan / Auditor (Siti)</h6>
-              <span class="badge bg-danger">Read-Only</span>
-            </div>
-            <small class="text-muted">Mengaudit omzet, HPP, margin laba tanpa izin mengubah data.</small>
-          </a>
-        </div>
+<div class="native-modal" id="userSwitchModal">
+  <div class="native-modal-backdrop" onclick="closeModal('userSwitchModal')"></div>
+  <div class="native-modal-dialog">
+    <header class="native-modal-header">
+      <h3>👥 Pilih Simulasi Pengguna & Hak Akses (RBAC)</h3>
+      <button class="btn-close-modal" onclick="closeModal('userSwitchModal')">&times;</button>
+    </header>
+    <div class="native-modal-body">
+      <p style="font-size:12px; color:var(--color-text-tertiary); margin-bottom:12px;">
+        Sesuai Dokumen PRD Bagian 3: Hak akses dibatasi berdasarkan peran dan Outlet ID penugasan.
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <a href="index.php?switch_role=owner" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-primary-dark);">1. Owner / Pemilik Usaha (Hafidz)</strong>
+            <span class="role-tag">Full Agregat</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Akses penuh seluruh cabang, dashboard omzet, HPP, margin laba bersih.</div>
+        </a>
+        <a href="index.php?switch_role=manager" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-success);">2. Manajer Outlet (Hanif)</strong>
+            <span class="role-tag" style="background:var(--color-success-bg); color:var(--color-success);">Cabang 1</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Mengelola BOM resep, inventori cabang Kaliurang, restok dan staf.</div>
+        </a>
+        <a href="index.php?switch_role=cashier" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-accent);">3. Kasir (Dzaky)</strong>
+            <span class="role-tag" style="background:var(--color-accent-light); color:var(--color-accent);">POS Kasir</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Memasukkan pesanan kasir, pembayaran tunai/QRIS, cetak nota thermal.</div>
+        </a>
+        <a href="index.php?switch_role=barista" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-info);">4. Barista (Rafie)</strong>
+            <span class="role-tag" style="background:var(--color-info-bg); color:var(--color-info);">Antrean & Resep</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Melihat antrean pesanan dan panduan gramasi takaran resep BOM.</div>
+        </a>
+        <a href="index.php?switch_role=warehouse" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-text-primary);">5. Staf Gudang (Imad)</strong>
+            <span class="role-tag">Inventori</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Mencatat mutasi barang masuk, opname stok, dan alert stok kritis.</div>
+        </a>
+        <a href="index.php?switch_role=accountant" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--color-danger);">6. Akuntan / Auditor (Siti)</strong>
+            <span class="role-tag" style="background:var(--color-danger-bg); color:var(--color-danger);">Read-Only</span>
+          </div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Audit omzet, HPP, margin laba tanpa izin mengubah data transaksi.</div>
+        </a>
       </div>
     </div>
+    <footer class="native-modal-footer">
+      <button type="button" class="filter-pill" onclick="closeModal('userSwitchModal')">Tutup</button>
+    </footer>
   </div>
 </div>
-

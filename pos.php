@@ -2,6 +2,7 @@
 /**
  * Antarmuka Kasir POS Multi-Outlet (F02)
  * KopiKita - PHP Native 8.x & MySQL XAMPP
+ * Desain Semantik HTML5 & Pure CSS3 (Figma: ui kopikita)
  */
 require_once __DIR__ . '/includes/auth.php';
 init_default_session();
@@ -10,6 +11,21 @@ $currentUser = current_user();
 $db = getDb();
 $stmtCats = $db->query('SELECT * FROM categories ORDER BY id ASC');
 $categories = $stmtCats->fetchAll();
+
+// Ambil jumlah alert stok kritis untuk badge notifikasi
+try {
+    $alertStmt = $db->query('
+        SELECT COUNT(*) as alert_count 
+        FROM outlet_stocks os 
+        JOIN ingredients i ON os.ingredient_id = i.id 
+        WHERE os.current_stock <= i.min_stock_alert
+    ');
+    $alertCount = (int)($alertStmt->fetch()['alert_count'] ?? 0);
+} catch (Exception $e) {
+    $alertCount = 0;
+}
+
+$isAllowedCheckout = !in_array($currentUser['role'], ['barista', 'accountant']);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -17,182 +33,381 @@ $categories = $stmtCats->fetchAll();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KopiKita - Kasir POS Multi-Outlet (F02)</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="public/style.css">
+  <link rel="stylesheet" href="public/css/style.css">
 </head>
-<body class="bg-light">
+<body class="app-shell">
 
-  <?php include __DIR__ . '/includes/navbar.php'; ?>
-
-  <div class="container-fluid pb-4">
-    <!-- Alert Flash Error if any -->
-    <?php if (isset($_SESSION['flash_error'])): ?>
-      <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        <?= htmlspecialchars($_SESSION['flash_error']) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  <!-- ====================================================================
+       TOP NAV BAR (Shared Component Anchor - Figma 1280x56)
+       ==================================================================== -->
+  <header class="top-navbar">
+    <div class="top-navbar__left">
+      <div class="brand-title">
+        <span class="brand-badge">☕</span>
+        <span>KopiKita <small>| Multi-Outlet System</small></span>
       </div>
-      <?php unset($_SESSION['flash_error']); ?>
-    <?php endif; ?>
 
-    <div class="row g-3">
-      <!-- Kolom Kiri: Menu Grid -->
-      <div class="col-lg-8">
-        <div class="card shadow-sm border-0 h-100">
-          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div>
-              <h5 class="mb-0 fw-bold"><i class="bi bi-grid-fill text-warning"></i> Menu Kopi & Makanan</h5>
-              <small class="text-muted">Pilih produk untuk ditambahkan ke kasir</small>
-            </div>
-            <div class="d-flex gap-2">
-              <input type="text" id="searchMenuInput" class="form-control form-control-sm" placeholder="Cari menu..." onkeyup="filterMenu()">
-              <select id="categoryFilter" class="form-select form-select-sm" onchange="filterMenu()">
-                <option value="all">Semua Kategori</option>
-                <?php foreach ($categories as $cat): ?>
-                  <option value="<?= htmlspecialchars($cat['name']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="row row-cols-2 row-cols-md-3 g-3" id="menuGrid">
-              <!-- Diisi secara dinamis via JavaScript dari API MySQL -->
-            </div>
-          </div>
+      <nav class="top-nav-links" aria-label="Navigasi Utama">
+        <a href="pos.php" class="top-nav-link active">POS Kasir</a>
+        <a href="dashboard.php" class="top-nav-link">Laba-Rugi</a>
+        <a href="recipes.php" class="top-nav-link">Resep & BOM</a>
+        <a href="inventory.php" class="top-nav-link">Inventori</a>
+        <a href="index.php" class="top-nav-link">Portal RBAC</a>
+      </nav>
+    </div>
+
+    <div class="top-navbar__right">
+      <span class="status-pill" title="Koneksi Sistem">
+        <span class="dot dot--online"></span> Online
+      </span>
+
+      <span class="status-pill" title="Nomor Kasir Aktif">
+        Register #01
+      </span>
+
+      <a href="inventory.php#alertsTab" class="btn-bell" title="Peringatan Stok Kritis">
+        🔔
+        <span class="badge-count" id="alertBadgeCount"><?= $alertCount ?></span>
+      </a>
+
+      <div class="user-profile-badge" onclick="openModal('userSwitchModal')" title="Klik untuk ganti peran">
+        <div class="user-avatar-circle">
+          <?= strtoupper(substr($currentUser['username'] ?? 'U', 0, 1)) ?>
+        </div>
+        <div style="line-height:1.2;">
+          <div style="font-size:12px; font-weight:700;" id="currentRoleBadge">Role: <?= strtoupper($currentUser['role']) ?></div>
+          <div style="font-size:10px; color:var(--color-accent-sand);" id="currentOutletDisplay"><?= htmlspecialchars($currentUser['outlet_name']) ?></div>
         </div>
       </div>
 
-      <!-- Kolom Kanan: Keranjang & Checkout -->
-      <div class="col-lg-4">
-        <div class="card shadow-sm border-0 sticky-top" style="top: 80px;">
-          <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fs-6 fw-bold"><i class="bi bi-cart3 text-warning"></i> Keranjang Transaksi</h5>
-            <button class="btn btn-outline-danger btn-sm py-0" onclick="clearCart()"><i class="bi bi-trash"></i> Kosongkan</button>
+      <?php if (is_logged_in()): ?>
+        <a href="index.php?logout=1" class="top-nav-link" style="color:var(--color-danger); padding:6px 8px;" title="Keluar">
+          🚪 Keluar
+        </a>
+      <?php endif; ?>
+    </div>
+  </header>
+
+  <!-- ====================================================================
+       3-PANE APPLICATION WORKSPACE (Figma Frame Structure)
+       ==================================================================== -->
+  <div class="workspace-3pane">
+
+    <!-- ------------------------------------------------------------------
+         PANE 1: LEFT NAVIGATION RAIL (256px Fixed, Rich Espresso)
+         ------------------------------------------------------------------ -->
+    <aside class="nav-rail">
+      <div>
+        <div class="outlet-switcher-card">
+          <div class="label">Cabang Aktif</div>
+          <div class="outlet-name">
+            📍 <?= htmlspecialchars($currentUser['outlet_name']) ?>
           </div>
-          <div class="card-body p-0">
-            <!-- Item List -->
-            <div id="cartItemsList" class="p-3" style="max-height: 280px; overflow-y: auto;">
-              <p class="text-center text-muted my-4"><i class="bi bi-cart-x fs-1 d-block"></i>Keranjang masih kosong</p>
-            </div>
+          <span class="role-tag">Hak Akses: <?= strtoupper($currentUser['role']) ?></span>
+        </div>
 
-            <!-- Cart Summary -->
-            <div class="bg-light p-3 border-top">
-              <div class="d-flex justify-content-between mb-1">
-                <span class="text-muted">Total HPP (Est. Biaya Bahan)</span>
-                <span id="cartTotalHpp" class="fw-semibold text-danger">Rp 0</span>
-              </div>
-              <div class="d-flex justify-content-between mb-2">
-                <span class="text-muted">Estimasi Margin Laba</span>
-                <span id="cartEstimatedMargin" class="fw-semibold text-success">Rp 0 (0%)</span>
-              </div>
-              <hr class="my-2">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fw-bold fs-5">Total Pembayaran</span>
-                <span id="cartTotalAmount" class="fw-bold fs-4 text-primary">Rp 0</span>
-              </div>
+        <ul class="rail-menu-list">
+          <li class="rail-menu-item active">
+            <a href="pos.php"><span class="icon">🧾</span> POS & Fast Billing</a>
+          </li>
+          <li class="rail-menu-item">
+            <a href="dashboard.php"><span class="icon">📊</span> Multi-Outlet P&L</a>
+          </li>
+          <li class="rail-menu-item">
+            <a href="recipes.php"><span class="icon">📖</span> Resep & HPP Dinamis</a>
+          </li>
+          <li class="rail-menu-item">
+            <a href="inventory.php"><span class="icon">📦</span> Live Inventori & Stok</a>
+          </li>
+          <li class="rail-menu-item">
+            <a href="index.php"><span class="icon">🛡️</span> RBAC & Info Proyek</a>
+          </li>
+        </ul>
+      </div>
 
-              <!-- Payment Form -->
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Nama Pelanggan (Opsional)</label>
-                <input type="text" id="custNameInput" class="form-control form-control-sm" placeholder="Pelanggan Walk-in" value="Pelanggan Walk-in">
-              </div>
+      <div class="rail-footer-card">
+        <div style="font-weight:700; color:var(--color-text-primary); margin-bottom:2px;">Shift Pagi (Aktif)</div>
+        <div>Kasir: <?= htmlspecialchars($currentUser['full_name']) ?></div>
+        <div style="font-size:10px; color:var(--color-text-tertiary); margin-top:4px;">SLA Simpan Transaksi &le; 1,5s</div>
+        <button class="btn-switch-role" onclick="openModal('userSwitchModal')">
+          🔄 Ganti Simulasi Role
+        </button>
+      </div>
+    </aside>
 
-              <div class="mb-3">
-                <label class="form-label small fw-bold">Metode Pembayaran</label>
-                <div class="btn-group w-100" role="group">
-                  <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="cash" checked onchange="togglePaymentMethod()">
-                  <label class="btn btn-outline-success btn-sm" for="payCash"><i class="bi bi-cash-stack"></i> Tunai (Cash)</label>
+    <!-- ------------------------------------------------------------------
+         PANE 2: CENTRAL WORK CANVAS (Dynamic Menu & Live Stock HPP)
+         ------------------------------------------------------------------ -->
+    <main class="work-canvas">
+      <section class="canvas-header-strip">
+        <div class="canvas-header-strip__top">
+          <div class="canvas-title-box">
+            <h1>☕ Katalog Menu KopiKita</h1>
+            <p>Pilih menu kopi atau camilan untuk ditambahkan ke keranjang kasir</p>
+          </div>
 
-                  <input type="radio" class="btn-check" name="paymentMethod" id="payQris" value="qris_sandbox" onchange="togglePaymentMethod()">
-                  <label class="btn btn-outline-primary btn-sm" for="payQris"><i class="bi bi-qr-code"></i> QRIS Sandbox</label>
-                </div>
-              </div>
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchMenuInput" placeholder="Cari nama menu / SKU..." onkeyup="filterMenu()">
+          </div>
+        </div>
 
-              <div id="cashInputGroup" class="mb-3">
-                <label class="form-label small fw-bold">Nominal Uang Diterima</label>
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text">Rp</span>
-                  <input type="number" id="cashGivenInput" class="form-control" placeholder="0" oninput="calculateChange()">
-                </div>
-                <div class="d-flex justify-content-between mt-1">
-                  <small class="text-muted">Kembalian:</small>
-                  <small id="changeDueText" class="fw-bold text-dark">Rp 0</small>
-                </div>
-              </div>
+        <!-- Hidden input for app.js filter synchronization -->
+        <input type="hidden" id="categoryFilter" value="all">
 
-              <?php 
-                $isAllowedCheckout = !in_array($currentUser['role'], ['barista', 'accountant']);
-              ?>
-              <button id="btnCheckout" class="btn btn-success w-100 py-2 fw-bold" onclick="processCheckout()" <?= !$isAllowedCheckout ? 'disabled title="Peran Anda tidak diizinkan melakukan transaksi checkout"' : '' ?>>
-                <i class="bi bi-check-circle-fill"></i> Simpan Transaksi & Potong Stok (BOM)
-              </button>
-              <?php if (!$isAllowedCheckout): ?>
-                <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small text-center">
-                  <i class="bi bi-exclamation-triangle"></i> Peran <strong><?= strtoupper($currentUser['role']) ?></strong> bersifat Read-Only untuk POS.
-                </div>
-              <?php endif; ?>
-            </div>
+        <nav class="category-filter-strip" aria-label="Filter Kategori">
+          <button class="filter-pill active" onclick="selectCategoryFilter('all', this)">
+            Semua Menu
+          </button>
+          <?php foreach ($categories as $cat): ?>
+            <button class="filter-pill" onclick="selectCategoryFilter('<?= htmlspecialchars($cat['name']) ?>', this)">
+              <?= htmlspecialchars($cat['name']) ?>
+            </button>
+          <?php endforeach; ?>
+        </nav>
+      </section>
+
+      <section class="catalog-grid-wrap">
+        <div class="catalog-grid" id="menuGrid">
+          <!-- Diisi secara dinamis oleh public/app.js dari database MySQL -->
+        </div>
+      </section>
+    </main>
+
+    <!-- ------------------------------------------------------------------
+         PANE 3: RIGHT SIDEBAR - ACTIVE CHECKOUT & ORDER LEDGER (380px Fixed)
+         ------------------------------------------------------------------ -->
+    <aside class="order-ledger">
+      <header class="ledger-header">
+        <h2>🛒 Keranjang Transaksi</h2>
+        <button class="btn-clear-cart" onclick="clearCart()" title="Hapus semua item">
+          🗑️ Kosongkan
+        </button>
+      </header>
+
+      <!-- Cart Items List (Scrollable) -->
+      <section class="cart-items-scroll" id="cartItemsList">
+        <div class="cart-empty-state">
+          <span class="icon">🛒</span>
+          <p>Keranjang masih kosong</p>
+        </div>
+      </section>
+
+      <!-- Financial Calculations & Checkout Form -->
+      <footer class="ledger-checkout-box">
+        <div class="calc-breakdown-row">
+          <span>Total HPP (Est. Biaya Bahan)</span>
+          <span id="cartTotalHpp" style="color:var(--color-danger); font-weight:700;">Rp 0</span>
+        </div>
+        <div class="calc-breakdown-row">
+          <span>Estimasi Margin Laba</span>
+          <span id="cartEstimatedMargin" style="color:var(--color-success); font-weight:700;">Rp 0 (0%)</span>
+        </div>
+
+        <div class="calc-breakdown-row total-row">
+          <span class="total-label">Total Tagihan</span>
+          <span class="total-value" id="cartTotalAmount">Rp 0</span>
+        </div>
+
+        <div class="form-group-custom">
+          <label for="custNameInput">Nama Pelanggan (Opsional)</label>
+          <input type="text" id="custNameInput" class="form-control-native" value="Pelanggan Walk-in" placeholder="Nama pemesan">
+        </div>
+
+        <div class="form-group-custom">
+          <label>Metode Pembayaran</label>
+          <div class="payment-toggle-grid">
+            <button type="button" class="payment-toggle-btn active" id="btnPayCash" onclick="setPaymentMethod('cash')">
+              💵 Tunai (Cash)
+            </button>
+            <button type="button" class="payment-toggle-btn" id="btnPayQris" onclick="setPaymentMethod('qris_sandbox')">
+              📱 QRIS Sandbox
+            </button>
+          </div>
+          <!-- Hidden radio inputs to maintain compatibility with app.js -->
+          <input type="radio" name="paymentMethod" id="payCash" value="cash" checked style="display:none;">
+          <input type="radio" name="paymentMethod" id="payQris" value="qris_sandbox" style="display:none;">
+        </div>
+
+        <div id="cashInputGroup" class="form-group-custom">
+          <label for="cashGivenInput">Uang Diterima (Rp)</label>
+          <input type="number" id="cashGivenInput" class="form-control-native" placeholder="0" oninput="calculateChange()">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;">
+            <span style="color:var(--color-text-muted);">Kembalian:</span>
+            <span id="changeDueText" style="font-weight:700; color:var(--color-text-primary);">Rp 0</span>
+          </div>
+        </div>
+
+        <button id="btnCheckout" class="btn-checkout-primary" onclick="processCheckout()" <?= !$isAllowedCheckout ? 'disabled title="Peran Anda tidak diizinkan melakukan transaksi checkout"' : '' ?>>
+          ✅ Simpan Transaksi & Potong Stok
+        </button>
+
+        <?php if (!$isAllowedCheckout): ?>
+          <div style="font-size:11px; color:var(--color-warning); text-align:center;">
+            ⚠️ Peran <strong><?= strtoupper($currentUser['role']) ?></strong> bersifat Read-Only untuk POS.
+          </div>
+        <?php endif; ?>
+      </footer>
+    </aside>
+
+  </div>
+
+  <!-- ====================================================================
+       MODAL: STRUK INVOICE / PRINT RECEIPT ESC/POS SIMULATION
+       ==================================================================== -->
+  <div class="native-modal" id="receiptModal">
+    <div class="native-modal-backdrop" onclick="closeModal('receiptModal')"></div>
+    <div class="native-modal-dialog native-modal-dialog--sm">
+      <header class="native-modal-header">
+        <h3>🧾 Nota Pembayaran (ESC/POS)</h3>
+        <button class="btn-close-modal" onclick="closeModal('receiptModal')">&times;</button>
+      </header>
+      <div class="native-modal-body">
+        <div id="receiptPrintArea" class="receipt-box">
+          <div style="text-align:center; font-weight:700; font-size:14px;">KOPIKITA COFFEE</div>
+          <div style="text-align:center; font-size:11px;" id="receiptOutletName"><?= htmlspecialchars($currentUser['outlet_name']) ?></div>
+          <hr class="receipt-divider">
+          <div>Inv : <span id="receiptInvoiceNo">KPK-01-000000</span></div>
+          <div>Tgl : <span id="receiptDate"><?= date('d/m/Y H:i') ?></span></div>
+          <div>Kas : <span id="receiptCashier"><?= htmlspecialchars($currentUser['full_name']) ?></span></div>
+          <div>Plg : <span id="receiptCustomer">Pelanggan</span></div>
+          <hr class="receipt-divider">
+          <table style="width:100%; border-collapse:collapse; margin-bottom:8px;" id="receiptItemsTable">
+            <!-- Dynamic via app.js -->
+          </table>
+          <hr class="receipt-divider">
+          <div style="display:flex; justify-content:space-between;">
+            <span>Total :</span> <strong id="receiptTotalAmount">Rp 0</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Bayar (<span id="receiptPaymentMethod">Cash</span>) :</span> <span id="receiptCashGiven">Rp 0</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Kembali :</span> <span id="receiptChangeDue">Rp 0</span>
+          </div>
+          <hr class="receipt-divider">
+          <div style="display:flex; justify-content:space-between; color:#666; font-size:10px;">
+            <span>Total HPP Bahan :</span> <span id="receiptTotalHpp">Rp 0</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; color:#666; font-size:10px;">
+            <span>Laba Kotor :</span> <span id="receiptGrossProfit">Rp 0</span>
+          </div>
+          <div style="text-align:center; margin-top:12px; font-size:11px;">
+            Terima Kasih atas Kunjungan Anda!<br>
+            <em>Kopi Nikmat, Transaksi Halal Berkah</em>
           </div>
         </div>
       </div>
+      <footer class="native-modal-footer">
+        <button type="button" class="filter-pill" onclick="closeModal('receiptModal')">Tutup</button>
+        <button type="button" class="btn-checkout-primary" style="padding:6px 14px; font-size:12px;" onclick="printReceipt()">
+          🖨️ Cetak Struk
+        </button>
+      </footer>
     </div>
   </div>
 
-  <!-- MODAL: STRUK INVOICE / PRINT RECEIPT ESC/POS SIMULATION -->
-  <div class="modal fade" id="receiptModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-      <div class="modal-content">
-        <div class="modal-body p-3">
-          <div id="receiptPrintArea" class="receipt-box font-monospace text-center">
-            <h5 class="fw-bold mb-0">KOPIKITA</h5>
-            <small id="receiptOutletName"><?= htmlspecialchars($currentUser['outlet_name']) ?></small>
-            <div class="border-top border-bottom border-dark border-dashed my-2 py-1 text-start small">
-              <div>Inv: <span id="receiptInvoiceNo">KPK-01-000000</span></div>
-              <div>Waktu: <span id="receiptDate"><?= date('d/m/Y H:i') ?></span></div>
-              <div>Kasir: <span id="receiptCashier"><?= htmlspecialchars($currentUser['full_name']) ?></span></div>
-              <div>Customer: <span id="receiptCustomer">Pelanggan</span></div>
+  <!-- ====================================================================
+       MODAL: GANTI ROLE PENGGUNA (RBAC SIMULATOR)
+       ==================================================================== -->
+  <div class="native-modal" id="userSwitchModal">
+    <div class="native-modal-backdrop" onclick="closeModal('userSwitchModal')"></div>
+    <div class="native-modal-dialog">
+      <header class="native-modal-header">
+        <h3>👥 Pilih Simulasi Pengguna & Hak Akses (RBAC)</h3>
+        <button class="btn-close-modal" onclick="closeModal('userSwitchModal')">&times;</button>
+      </header>
+      <div class="native-modal-body">
+        <p style="font-size:12px; color:var(--color-text-tertiary); margin-bottom:12px;">
+          Sesuai Dokumen PRD Bagian 3: Hak akses dibatasi berdasarkan peran dan Outlet ID penugasan.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <a href="index.php?switch_role=owner" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-primary-dark);">1. Owner / Pemilik Usaha (Hafidz)</strong>
+              <span class="role-tag">Full Agregat</span>
             </div>
-            <table class="table table-borderless table-sm small text-start mb-2" id="receiptItemsTable">
-              <!-- Dynamic -->
-            </table>
-            <div class="border-top border-dark border-dashed pt-1 small text-start">
-              <div class="d-flex justify-content-between">
-                <span>Total:</span> <strong id="receiptTotalAmount">Rp 0</strong>
-              </div>
-              <div class="d-flex justify-content-between">
-                <span>Bayar (<span id="receiptPaymentMethod">Cash</span>):</span> <span id="receiptCashGiven">Rp 0</span>
-              </div>
-              <div class="d-flex justify-content-between">
-                <span>Kembali:</span> <span id="receiptChangeDue">Rp 0</span>
-              </div>
-              <hr class="my-1 border-dashed">
-              <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
-                <span>Total HPP Bahan:</span> <span id="receiptTotalHpp">Rp 0</span>
-              </div>
-              <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
-                <span>Laba Kotor Order:</span> <span id="receiptGrossProfit">Rp 0</span>
-              </div>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Akses penuh seluruh cabang, dashboard omzet, HPP, margin laba bersih.</div>
+          </a>
+          <a href="index.php?switch_role=manager" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-success);">2. Manajer Outlet (Hanif)</strong>
+              <span class="role-tag" style="background:var(--color-success-bg); color:var(--color-success);">Cabang 1</span>
             </div>
-            <div class="mt-3 text-center small text-muted">
-              Terima Kasih atas Kunjungan Anda!<br>
-              <em>Kopi Nikmat, Transaksi Halal Berkah</em>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Mengelola BOM resep, inventori cabang Kaliurang, restok dan staf.</div>
+          </a>
+          <a href="index.php?switch_role=cashier" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-accent);">3. Kasir (Dzaky)</strong>
+              <span class="role-tag" style="background:var(--color-accent-light); color:var(--color-accent);">POS Kasir</span>
             </div>
-          </div>
-        </div>
-        <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
-          <button type="button" class="btn btn-primary btn-sm" onclick="printReceipt()"><i class="bi bi-printer"></i> Cetak Struk (ESC/POS)</button>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Memasukkan pesanan kasir, pembayaran tunai/QRIS, cetak nota thermal.</div>
+          </a>
+          <a href="index.php?switch_role=barista" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-info);">4. Barista (Rafie)</strong>
+              <span class="role-tag" style="background:var(--color-info-bg); color:var(--color-info);">Antrean & Resep</span>
+            </div>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Melihat antrean pesanan dan panduan gramasi takaran resep BOM.</div>
+          </a>
+          <a href="index.php?switch_role=warehouse" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-text-primary);">5. Staf Gudang (Imad)</strong>
+              <span class="role-tag">Inventori</span>
+            </div>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Mencatat mutasi barang masuk, opname stok, dan alert stok kritis.</div>
+          </a>
+          <a href="index.php?switch_role=accountant" class="outlet-switcher-card" style="display:block; margin-bottom:0; text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--color-danger);">6. Akuntan / Auditor (Siti)</strong>
+              <span class="role-tag" style="background:var(--color-danger-bg); color:var(--color-danger);">Read-Only</span>
+            </div>
+            <div style="font-size:11px; color:var(--color-text-tertiary); margin-top:4px;">Audit omzet, HPP, margin laba tanpa izin mengubah data transaksi.</div>
+          </a>
         </div>
       </div>
+      <footer class="native-modal-footer">
+        <button type="button" class="filter-pill" onclick="closeModal('userSwitchModal')">Tutup</button>
+      </footer>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Injeksi state sesi pengguna dari PHP
+    // State pengguna dari PHP
     const currentPhpUser = <?= json_encode($currentUser) ?>;
+
+    // Helper Filter Kategori
+    function selectCategoryFilter(categoryName, btn) {
+      document.querySelectorAll('.category-filter-strip .filter-pill').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      const catInput = document.getElementById('categoryFilter');
+      if (catInput) {
+        catInput.value = categoryName;
+        filterMenu();
+      }
+    }
+
+    // Helper Switch Payment Method
+    function setPaymentMethod(method) {
+      const btnCash = document.getElementById('btnPayCash');
+      const btnQris = document.getElementById('btnPayQris');
+      const radioCash = document.getElementById('payCash');
+      const radioQris = document.getElementById('payQris');
+      const cashGroup = document.getElementById('cashInputGroup');
+
+      if (method === 'cash') {
+        btnCash.classList.add('active');
+        btnQris.classList.remove('active');
+        radioCash.checked = true;
+        cashGroup.style.display = 'flex';
+      } else {
+        btnQris.classList.add('active');
+        btnCash.classList.remove('active');
+        radioQris.checked = true;
+        cashGroup.style.display = 'none';
+      }
+    }
   </script>
   <script src="public/app.js"></script>
 </body>
 </html>
-
