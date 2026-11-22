@@ -6,7 +6,7 @@ ob_start();
 <div class="auth-shell">
     <div class="auth-hero">
         <div class="logo">
-            <svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-cup"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#icon-cup"/></svg>
         </div>
         <div class="title">KopiKita</div>
         <div class="subtitle">Portal Member Resmi</div>
@@ -39,8 +39,8 @@ ob_start();
         <p style="margin-top:12px; font-size: var(--size-12); color:var(--color-on-surface-variant);">Sudah punya akun? <a href="login.php" style="color:var(--color-primary); text-decoration:none;">Masuk</a></p>
     </div>
     <div style="text-align:center; margin-top:16px;">
-        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-star"/></svg>Poin Tiap Pembelian</span>
-        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-ticket"/></svg>Voucher Hemat</span>
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="#icon-star"/></svg>Poin Tiap Pembelian</span>
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="#icon-ticket"/></svg>Voucher Hemat</span>
     </div>
 </div>
 <?php

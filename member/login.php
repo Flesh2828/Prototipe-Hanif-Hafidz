@@ -6,7 +6,7 @@ ob_start();
 <div class="auth-shell">
     <div class="auth-hero">
         <div class="logo">
-            <svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-cup"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#icon-cup"/></svg>
         </div>
         <div class="title">KopiKita</div>
         <div class="subtitle">Portal Member Resmi</div>
@@ -26,7 +26,7 @@ ob_start();
                 <label for="pin" style="display:block; font-size: var(--size-12); margin-bottom:4px;">PIN 6 Digit</label>
                 <input type="password" id="pin" name="pin" required minlength="6" maxlength="6" placeholder="******" style="width:100%; padding:8px 36px 8px 8px; border:1px solid var(--color-outline-variant); border-radius: var(--radius-sm);" />
                 <button type="button" id="toggle-pin" aria-label="Tampilkan PIN" aria-pressed="false" style="position:absolute; right:8px; top:34px; background:none; border:none; cursor:pointer; color:var(--color-on-surface-variant);">
-                    <svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye"/></svg>
+                    <svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg>
                 </button>
             </div>
             <div style="text-align:right; margin-bottom:12px;">
@@ -38,8 +38,8 @@ ob_start();
         <p style="margin-top:8px; font-size: var(--size-12);">Belum punya akun? <a href="register.php" style="color:var(--color-primary); text-decoration:none;">Daftar</a></p>
     </div>
     <div style="text-align:center; margin-top:16px;">
-        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-star"/></svg>Poin Tiap Pembelian</span>
-        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-ticket"/></svg>Voucher Hemat</span>
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="#icon-star"/></svg>Poin Tiap Pembelian</span>
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="#icon-ticket"/></svg>Voucher Hemat</span>
     </div>
 </div>
 <script>
@@ -51,7 +51,7 @@ ob_start();
         pin.type = showing ? 'password' : 'text';
         this.setAttribute('aria-pressed', showing ? 'false' : 'true');
         this.setAttribute('aria-label', showing ? 'Tampilkan PIN' : 'Sembunyikan PIN');
-        const newHref = showing ? '/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye' : '/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye-off';
+        const newHref = showing ? '#icon-eye' : '#icon-eye-off';
         use.setAttribute('href', newHref);
     });
 </script>
