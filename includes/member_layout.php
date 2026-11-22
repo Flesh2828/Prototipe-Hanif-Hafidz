@@ -1,5 +1,5 @@
 <?php
-/* includes/member_layout.php */
+$publicPage = $publicPage ?? false; // flag to hide global UI for login/register pages
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -16,23 +16,29 @@
     <script src="/Prototipe-Hanif-Hafidz/public/js/member.js" defer></script>
 </head>
 <body>
-    <!-- Header -->
+<?php if (!$publicPage): ?>
+    <!-- Header (visible on internal pages) -->
     <header class="card-glass" style="margin-top:8px;">
         <div class="container">
             <h1 style="font-size: var(--size-22); margin:0;">KopiKita</h1>
         </div>
     </header>
-    <!-- Main content placeholder -->
+<?php endif; ?>
+
+    <!-- Main content injected by page scripts -->
     <main class="container" id="main-content">
-        <!-- Page specific content will be injected here -->
-    <?php if (isset($pageContent)) echo $pageContent; ?></main>
-    <!-- Navigation (bottom for mobile, top for desktop) -->
+        <?php if (isset($pageContent)) echo $pageContent; ?>
+    </main>
+
+<?php if (!$publicPage): ?>
+    <!-- Bottom navigation (mobile) -->
     <nav class="bottom-nav" id="bottom-nav">
-        <a href="login.php" class="active"><span>🏠</span><br><small>Beranda</small></a>
+        <a href="dashboard.php" class="active"><span>🏠</span><br><small>Beranda</small></a>
         <a href="vouchers.php"><span>🎟️</span><br><small>Voucher</small></a>
         <a href="history.php"><span>📜</span><br><small>Riwayat</small></a>
         <a href="profile.php"><span>👤</span><br><small>Profil</small></a>
     </nav>
+    <!-- Top navigation (desktop) -->
     <nav class="top-nav" id="top-nav">
         <ul>
             <li><a href="dashboard.php" class="active">Dashboard</a></li>
@@ -41,6 +47,8 @@
             <li><a href="profile.php">Profil</a></li>
         </ul>
     </nav>
+<?php endif; ?>
+
     <!-- Toast container -->
     <div id="toast" style="position:fixed; top:16px; right:16px; z-index:9999;"></div>
     <!-- Modal container -->

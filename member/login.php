@@ -1,52 +1,61 @@
 <?php
-// member/login.php – Login page (uses dummy backend)
-$pageContent = <<<HTML
-<div class="card-glass">
-    <h2 style="font-size: var(--size-22); margin-bottom: 12px;">Masuk Member</h2>
-    <form id="login-form">
-        <div style="margin-bottom: 12px;">
-            <label for="phone" style="display:block; font-size: var(--size-14); margin-bottom:4px;">Nomor HP</label>
-            <input type="tel" id="phone" name="phone" required pattern="[0-9\-]+" style="width:100%; padding:8px; border:1px solid var(--color-outline-variant); border-radius: var(--radius-sm);" placeholder="0812-3456-7890" />
+$pageTitle = 'Masuk Member';
+$publicPage = true; // hide global header/nav
+ob_start();
+?>
+<div class="auth-shell">
+    <div class="auth-hero">
+        <div class="logo">
+            <svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-cup"/></svg>
         </div>
-        <div style="margin-bottom: 12px;">
-            <label for="pin" style="display:block; font-size: var(--size-14); margin-bottom:4px;">PIN (6 digit)</label>
-            <input type="password" id="pin" name="pin" required minlength="6" maxlength="6" style="width:100%; padding:8px; border:1px solid var(--color-outline-variant); border-radius: var(--radius-sm);" placeholder="******" />
-        </div>
-        <button type="submit" style="width:100%; padding:10px; background: var(--color-primary); color:#fff; border:none; border-radius: var(--radius-sm); font-size: var(--size-16);">Masuk</button>
-    </form>
-    <p style="margin-top:12px; font-size: var(--size-12); text-align:center;">
-        Belum punya akun? <a href="register.php" style="color: var(--color-primary); text-decoration:none;">Daftar</a>
-    </p>
-    <div id="lock-state" style="display:none; margin-top:12px; color: var(--color-error); font-size: var(--size-12); text-align:center;">
-        <span style="margin-right:4px;">🔒</span>Akun terkunci karena 5 x gagal masuk. Coba lagi dalam 15 menit.
+        <div class="title">KopiKita</div>
+        <div class="subtitle">Portal Member Resmi</div>
+        <div class="tagline">Teman Ngopi &amp; Keuntungan Spesial Member</div>
+        <div class="blob"></div>
+        <div class="blob"></div>
+    </div>
+    <div class="auth-card">
+        <h2 class="form-title" style="font-size: var(--size-22); margin-bottom:8px;">Selamat datang kembali</h2>
+        <p class="form-sub" style="font-size: var(--size-14); color:var(--color-on-surface-variant); margin-bottom:16px;">Masuk untuk lihat poin dan voucher kamu</p>
+        <form id="login-form">
+            <div style="margin-bottom:12px;">
+                <label for="phone" style="display:block; font-size: var(--size-12); margin-bottom:4px;">Nomor HP</label>
+                <input type="tel" id="phone" name="phone" required placeholder="08xx xxxx xxxx" style="width:100%; padding:8px; border:1px solid var(--color-outline-variant); border-radius: var(--radius-sm);" />
+            </div>
+            <div style="margin-bottom:12px; position:relative;">
+                <label for="pin" style="display:block; font-size: var(--size-12); margin-bottom:4px;">PIN 6 Digit</label>
+                <input type="password" id="pin" name="pin" required minlength="6" maxlength="6" placeholder="******" style="width:100%; padding:8px 36px 8px 8px; border:1px solid var(--color-outline-variant); border-radius: var(--radius-sm);" />
+                <button type="button" id="toggle-pin" aria-label="Tampilkan PIN" aria-pressed="false" style="position:absolute; right:8px; top:34px; background:none; border:none; cursor:pointer; color:var(--color-on-surface-variant);">
+                    <svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye"/></svg>
+                </button>
+            </div>
+            <div style="text-align:right; margin-bottom:12px;">
+                <a href="#" style="font-size: var(--size-12); color:var(--color-primary); text-decoration:none;">Lupa PIN?</a>
+            </div>
+            <button type="submit" style="width:100%; padding:10px; background:var(--color-primary); color:#fff; border:none; border-radius:12px; font-size:var(--size-16);">Masuk</button>
+        </form>
+        <p style="margin-top:12px; font-size: var(--size-12); color:var(--color-on-surface-variant);">Info Keamanan: Reset PIN dilakukan langsung di gerai melalui Manajer Outlet.</p>
+        <p style="margin-top:8px; font-size: var(--size-12);">Belum punya akun? <a href="register.php" style="color:var(--color-primary); text-decoration:none;">Daftar</a></p>
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-star"/></svg>Poin Tiap Pembelian</span>
+        <span class="chip"><svg class="icon" aria-hidden="true"><use href="/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-ticket"/></svg>Voucher Hemat</span>
     </div>
 </div>
 <script>
-    // Show lock message if account is locked in localStorage (handled by MemberAPI.login)
-    (function(){
-        const urlParams = new URLSearchParams(window.location.search);
-        const phone = document.getElementById('phone').value.trim();
-        // Check stored lock flag for any phone (the API stores under loginLock_<phone>)
-        // We'll read from localStorage after a failed attempt; for initial load we just hide.
-        const lockDiv = document.getElementById('lock-state');
-        // Function to refresh lock UI
-        function refreshLock(){
-            const stored = JSON.parse(localStorage.getItem('loginLock_' + (document.getElementById('phone').value || '')) || '{}');
-            if (stored.lockUntil && Date.now() < stored.lockUntil) {
-                lockDiv.style.display = 'block';
-            } else {
-                lockDiv.style.display = 'none';
-            }
-        }
-        // Bind change event to re‑check when user types a phone number
-        document.getElementById('phone').addEventListener('input', refreshLock);
-        // Initial check (if query includes phone)
-        if (urlParams.has('phone')) {
-            document.getElementById('phone').value = urlParams.get('phone');
-            refreshLock();
-        }
-    })();
+    // Toggle PIN visibility – swaps eye/eye-off icons from sprite
+    document.getElementById('toggle-pin').addEventListener('click', function(){
+        const pin = document.getElementById('pin');
+        const use = this.querySelector('use');
+        const showing = pin.type === 'text';
+        pin.type = showing ? 'password' : 'text';
+        this.setAttribute('aria-pressed', showing ? 'false' : 'true');
+        this.setAttribute('aria-label', showing ? 'Tampilkan PIN' : 'Sembunyikan PIN');
+        const newHref = showing ? '/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye' : '/Prototipe-Hanif-Hafidz/public/img/sprite.svg#icon-eye-off';
+        use.setAttribute('href', newHref);
+    });
 </script>
-HTML;
-include '../includes/member_layout.php';
+<?php
+$pageContent = ob_get_clean();
+include __DIR__ . '/../includes/member_layout.php';
 ?>
