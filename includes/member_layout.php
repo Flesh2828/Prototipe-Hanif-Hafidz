@@ -25,7 +25,7 @@
     <!-- Main content placeholder -->
     <main class="container" id="main-content">
         <!-- Page specific content will be injected here -->
-    </main>
+    <?php if (isset($pageContent)) echo $pageContent; ?></main>
     <!-- Navigation (bottom for mobile, top for desktop) -->
     <nav class="bottom-nav" id="bottom-nav">
         <a href="login.php" class="active"><span>🏠</span><br><small>Beranda</small></a>
