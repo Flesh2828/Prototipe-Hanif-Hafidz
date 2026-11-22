@@ -45,6 +45,11 @@
 
   // Page handlers -----------------------------------------------------------
 
+  function isValidPhone(raw) {
+    const norm = MemberAPI._norm(raw);
+    return norm.startsWith('08') && norm.length >= 10 && norm.length <= 14;
+  }
+
   function initLoginPage() {
     const form = $('#login-form');
     if (!form) return;
@@ -52,6 +57,10 @@
       e.preventDefault();
       const phone = $('#phone').value.trim();
       const pin = $('#pin').value.trim();
+      if (!isValidPhone(phone)) {
+        showToast('Nomor HP harus diawali 08 dan 10–14 digit', 'error');
+        return;
+      }
       setLoading(true);
       const res = await MemberAPI.login(phone, pin);
       setLoading(false);
@@ -78,8 +87,12 @@
         showToast('PIN tidak cocok', 'error');
         return;
       }
-      if (pin.length !== 6) {
+      if (!/^\d{6}$/.test(pin)) {
         showToast('PIN harus 6 digit', 'error');
+        return;
+      }
+      if (!isValidPhone(phone)) {
+        showToast('Nomor HP harus diawali 08 dan 10–14 digit', 'error');
         return;
       }
       setLoading(true);
@@ -89,7 +102,7 @@
         showToast('Akun berhasil dibuat', 'success');
         setTimeout(() => { window.location.href = 'login.php'; }, 800);
       } else {
-        showToast('Registrasi gagal', 'error');
+        showToast(res.error || 'Registrasi gagal', 'error');
       }
     });
   }

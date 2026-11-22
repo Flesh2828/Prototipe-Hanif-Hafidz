@@ -1,18 +1,18 @@
-// public/js/member-data.js – dummy data & async API
+// public/js/member-data.js – prototype data layer with persistence
 
 /* Utility: simple delay */
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/* Design tokens (mirrored from member.css) – not required here but kept for reference */
-const DESIGN = {
-  primary: "#623f18",
-  success: "#047857",
-  error: "#ba1a1a",
-};
+/* Phone normalisation – keep only digits, convert Indonesia prefix to local 0 */
+function normalizePhone(raw) {
+  const digits = raw.replace(/\D/g, "");
+  // replace leading 62 (or 62 after +) with 0
+  return digits.replace(/^62/, "0");
+}
 
-/* Dummy member */
+/* -------------------- Dummy data (hard‑coded) -------------------- */
 const DUMMY_MEMBER = {
   id: "KP-82049",
   name: "Raka Pratama",
@@ -20,19 +20,17 @@ const DUMMY_MEMBER = {
   pin: "123456",
   tier: "Regular",
   pointsActive: 87,
-  pointsCumulative: 87, // this year
+  pointsCumulative: 87,
   pointsExpiringSoon: 3,
-  pointsExpiringDate: "2026-12-20",
+  joinDate: "2026-01-01",
 };
 
-/* Outlets */
 const OUTLETS = [
   { id: "O1", name: "KopiKita Kaliurang (Pusat)" },
   { id: "O2", name: "KopiKita Gejayan" },
   { id: "O3", name: "KopiKita Malioboro" },
 ];
 
-/* Vouchers */
 const VOUCHERS = [
   {
     id: "VV-001",
@@ -41,7 +39,7 @@ const VOUCHERS = [
     cost: 25,
     status: "ACTIVE",
     description: "Gunakan untuk potongan pembelian minimal Rp50.000",
-    lockedFor: null, // regular can redeem
+    lockedFor: null,
   },
   {
     id: "VV-002",
@@ -63,7 +61,6 @@ const VOUCHERS = [
   },
 ];
 
-/* History entries – 12 sample mutations */
 const HISTORY = [
   { id: 1, type: "Pembelian", points: 10, outlet: "O1", date: "2026-11-10" },
   { id: 2, type: "Pembelian", points: 20, outlet: "O2", date: "2026-11-12" },
@@ -79,125 +76,171 @@ const HISTORY = [
   { id: 12, type: "Koreksi void", points: -2, outlet: "O2", date: "2026-11-22" },
 ];
 
-/* Exported async API */
+/* -------------------- Persistent storage helpers -------------------- */
+let memMembers = [];
+function loadMembers() {
+  try {
+    const raw = localStorage.getItem('kk_members');
+    memMembers = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    // fallback to in‑memory list if storage fails
+    memMembers = [];
+  }
+}
+function saveMembers() {
+  try {
+    localStorage.setItem('kk_members', JSON.stringify(memMembers));
+  } catch (e) {
+    // ignore – data stays in memory only
+  }
+}
+
+// Initialise on load
+loadMembers();
+
+/* -------------------- Core API -------------------- */
 window.MemberAPI = {
-  /** Get member data (simulated) */
+  /** Helper – normalise phone number */
+  _norm(phone) { return normalizePhone(phone); },
+
+  /** Get dummy member (for demo) */
   async getMember() {
     await delay(250);
-    // return a shallow copy to avoid accidental mutation
     return { ...DUMMY_MEMBER };
   },
 
-  /** Get list of outlets */
   async getOutlets() {
     await delay(200);
     return OUTLETS.map(o => ({ ...o }));
   },
 
-  /** Get voucher catalog (all) */
   async getVouchers() {
     await delay(250);
     return VOUCHERS.map(v => ({ ...v }));
   },
 
-  /** Claim a voucher by id – updates points if possible */
-  async claimVoucher(voucherId) {
+  /** Register a new member */
+  async register({ name, phone, pin }) {
     await delay(300);
-    const voucher = VOUCHERS.find(v => v.id === voucherId);
-    if (!voucher) {
-      return { success: false, error: "Voucher tidak ditemukan" };
+    const normPhone = normalizePhone(phone);
+    // check against dummy and stored members
+    const existsDummy = normalizePhone(DUMMY_MEMBER.phone) === normPhone;
+    const existsStored = memMembers.some(m => normalizePhone(m.phone) === normPhone);
+    if (existsDummy || existsStored) {
+      return { success: false, error: "Nomor HP sudah terdaftar" };
     }
-    if (voucher.status !== "ACTIVE") {
-      return { success: false, error: "Voucher tidak dapat ditukarkan" };
-    }
-    if (voucher.lockedFor && voucher.lockedFor !== DUMMY_MEMBER.tier) {
-      return { success: false, error: `Voucher hanya untuk tier ${voucher.lockedFor}` };
-    }
-    if (DUMMY_MEMBER.pointsActive < voucher.cost) {
-      return { success: false, error: "Poin tidak cukup" };
-    }
-    // Deduct points & mark redeemed
-    DUMMY_MEMBER.pointsActive -= voucher.cost;
-    voucher.status = "REDEEMED";
-    // Add to history as Penukaran voucher
-    HISTORY.unshift({
-      id: HISTORY.length + 1,
-      type: "Penukaran voucher",
-      points: -voucher.cost,
-      outlet: "O1",
-      date: new Date().toISOString().slice(0, 10),
-    });
-    return { success: true, member: { ...DUMMY_MEMBER } };
+    const newMember = {
+      id: "KP-" + Math.floor(Math.random() * 90000 + 10000),
+      name,
+      phone: normPhone,
+      pin: String(pin),
+      tier: "Silver",
+      pointsActive: 0,
+      pointsCumulative: 0,
+      pointsExpiringSoon: 0,
+      joinDate: new Date().toISOString().slice(0, 10),
+    };
+    memMembers.push(newMember);
+    saveMembers();
+    return { success: true, member: { ...newMember } };
   },
 
-  /** Get full ledger (history) */
+  /** Login – checks dummy + stored members */
+  async login(rawPhone, pin) {
+    await delay(250);
+    const phone = normalizePhone(rawPhone);
+    const lockKey = `loginLock_${phone}`;
+    const now = Date.now();
+    let lockInfo = {};
+    try { lockInfo = JSON.parse(localStorage.getItem(lockKey) || "{}"); } catch (e) { lockInfo = {}; }
+    if (lockInfo.lockUntil && now < lockInfo.lockUntil) {
+      return { success: false, error: "Akun terkunci, coba lagi nanti" };
+    }
+
+    // find member (dummy or stored)
+    const dummyMatch = normalizePhone(DUMMY_MEMBER.phone) === phone && DUMMY_MEMBER.pin === pin;
+    const stored = memMembers.find(m => normalizePhone(m.phone) === phone && m.pin === pin);
+
+    if (dummyMatch || stored) {
+      // successful login – store session (only id & phone)
+      const sess = dummyMatch ? { id: DUMMY_MEMBER.id, phone: DUMMY_MEMBER.phone } : { id: stored.id, phone: stored.phone };
+      try { localStorage.setItem('kk_session', JSON.stringify(sess)); } catch (e) { /* ignore */ }
+      // reset lock counter
+      try { localStorage.removeItem(lockKey); } catch (e) { /* ignore */ }
+      return { success: true, member: dummyMatch ? { ...DUMMY_MEMBER } : { ...stored } };
+    }
+
+    // failed attempt – update lock info
+    lockInfo.attempts = (lockInfo.attempts || 0) + 1;
+    if (lockInfo.attempts >= 5) {
+      lockInfo.lockUntil = now + 15 * 60 * 1000; // 15 menit
+      lockInfo.attempts = 0;
+    }
+    try { localStorage.setItem(lockKey, JSON.stringify(lockInfo)); } catch (e) { /* ignore */ }
+    return { success: false, error: "PIN atau nomor HP salah" };
+  },
+
+  /** Retrieve current logged‑in member */
+  async getSession() {
+    await delay(100);
+    let sess = null;
+    try { sess = JSON.parse(localStorage.getItem('kk_session') || "null"); } catch (e) { sess = null; }
+    if (!sess) return null;
+    // locate member data
+    if (sess.id === DUMMY_MEMBER.id) return { ...DUMMY_MEMBER };
+    const stored = memMembers.find(m => m.id === sess.id);
+    return stored ? { ...stored } : null;
+  },
+
+  /** Logout – clear session */
+  async logout() {
+    await delay(100);
+    try { localStorage.removeItem('kk_session'); } catch (e) { /* ignore */ }
+    return { success: true };
+  },
+
+  /** Get ledger (history) – unchanged */
   async getLedger({ outletId = null, type = "Semua", page = 1, pageSize = 10 } = {}) {
     await delay(300);
     let list = HISTORY;
-    if (outletId) {
-      list = list.filter(h => h.outlet === outletId);
-    }
-    if (type !== "Semua") {
-      list = list.filter(h => h.type === type);
-    }
+    if (outletId) list = list.filter(h => h.outlet === outletId);
+    if (type !== "Semua") list = list.filter(h => h.type === type);
     const total = list.length;
     const start = (page - 1) * pageSize;
     const pageData = list.slice(start, start + pageSize).map(e => ({ ...e }));
     return { total, page, pageSize, data: pageData };
   },
 
-  /** Simulated login – checks phone & PIN, handles lock for test account */
-  async login(phone, pin) {
-    await delay(250);
-    const LOCKED_ACCOUNT = "0899-0000-0000";
-    const lockKey = `loginLock_${phone}`;
-    const now = Date.now();
-    const stored = JSON.parse(localStorage.getItem(lockKey) || "{}");
-    if (stored.lockUntil && now < stored.lockUntil) {
-      return { success: false, error: "Akun terkunci, coba lagi nanti" };
-    }
-    // Test locked account – always fail and increase counter
-    if (phone === LOCKED_ACCOUNT) {
-      stored.attempts = (stored.attempts || 0) + 1;
-      if (stored.attempts >= 5) {
-        stored.lockUntil = now + 15 * 60 * 1000; // 15 menit
-        stored.attempts = 0;
-      }
-      localStorage.setItem(lockKey, JSON.stringify(stored));
-      return { success: false, error: "PIN salah" };
-    }
-    // Normal dummy member
-    if (phone === DUMMY_MEMBER.phone && pin === DUMMY_MEMBER.pin) {
-      // reset any lock info
-      localStorage.removeItem(lockKey);
-      return { success: true, member: { ...DUMMY_MEMBER } };
-    }
-    // Wrong credential
-    stored.attempts = (stored.attempts || 0) + 1;
-    if (stored.attempts >= 5) {
-      stored.lockUntil = now + 15 * 60 * 1000;
-      stored.attempts = 0;
-    }
-    localStorage.setItem(lockKey, JSON.stringify(stored));
-    return { success: false, error: "PIN atau nomor HP salah" };
+  /** Get member's vouchers – simple proxy */
+  async getMyVouchers() {
+    // in a real app this would be filtered; here we return all for demo
+    await delay(200);
+    return VOUCHERS.map(v => ({ ...v }));
   },
 
-  /** Simulated registration – returns created member (no persistence) */
-  async register({ name, phone, pin }) {
-    await delay(300);
-    // In dummy world we just echo back
-    const newMember = {
-      id: "KP-" + Math.floor(Math.random() * 90000 + 10000),
-      name,
-      phone,
-      pin,
-      tier: "Regular",
-      pointsActive: 0,
-      pointsCumulative: 0,
-      pointsExpiringSoon: 0,
-    };
-    return { success: true, member: newMember };
+  /** Change PIN – prototype only */
+  // hanya untuk prototipe; di produksi PIN di‑hash bcrypt di server
+  async changePin(oldPin, newPin) {
+    await delay(200);
+    if (!/^[0-9]{6}$/.test(newPin)) {
+      return { success: false, error: "PIN baru harus 6 digit angka" };
+    }
+    const session = await this.getSession();
+    if (!session) return { success: false, error: "Tidak ada sesi login" };
+    // locate member (dummy or stored)
+    if (session.id === DUMMY_MEMBER.id) {
+      if (DUMMY_MEMBER.pin !== oldPin) return { success: false, error: "PIN lama tidak cocok" };
+      DUMMY_MEMBER.pin = newPin;
+    } else {
+      const idx = memMembers.findIndex(m => m.id === session.id);
+      if (idx === -1) return { success: false, error: "Member tidak ditemukan" };
+      if (memMembers[idx].pin !== oldPin) return { success: false, error: "PIN lama tidak cocok" };
+      memMembers[idx].pin = newPin;
+      saveMembers();
+    }
+    return { success: true };
   },
 };
 
-/* End of member-data.js */
+// Export list of function names for verification (not part of API surface)
+window.MemberAPI._exported = Object.keys(window.MemberAPI);
