@@ -134,7 +134,7 @@ window.MemberAPI = {
       name,
       phone: normPhone,
       pin: String(pin),
-      tier: "Silver",
+      tier: "Regular",
       pointsActive: 0,
       pointsCumulative: 0,
       pointsExpiringSoon: 0,
@@ -202,6 +202,8 @@ window.MemberAPI = {
   /** Get ledger (history) – unchanged */
   async getLedger({ outletId = null, type = "Semua", page = 1, pageSize = 10 } = {}) {
     await delay(300);
+    const _s = await this.getSession();
+    if (!_s || _s.id !== DUMMY_MEMBER.id) return { total: 0, page, pageSize, data: [] };
     let list = HISTORY;
     if (outletId) list = list.filter(h => h.outlet === outletId);
     if (type !== "Semua") list = list.filter(h => h.type === type);
@@ -213,6 +215,8 @@ window.MemberAPI = {
 
   /** Get member's vouchers – simple proxy */
   async getMyVouchers() {
+    const _s = await this.getSession();
+    if (!_s || _s.id !== DUMMY_MEMBER.id) return [];
     // in a real app this would be filtered; here we return all for demo
     await delay(200);
     return VOUCHERS.map(v => ({ ...v }));
