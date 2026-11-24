@@ -53,10 +53,11 @@
 .dash-head__title { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; color: var(--d-on); }
 @media (min-width: 1024px) { .dash-head { margin-bottom: 24px; } .dash-head__title { font-size: 36px; line-height: 44px; } }
 
+.dash-head__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .dash-logout {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
   border: 1px solid var(--d-outline-variant); border-radius: 12px; background: var(--d-card);
-  color: var(--d-on); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  color: var(--d-on); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none;
 }
 .dash-logout:hover { background: var(--d-surface-low); }
 

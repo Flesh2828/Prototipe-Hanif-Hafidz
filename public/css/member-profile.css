@@ -1,0 +1,157 @@
+/* =========================================================
+   KopiKita Member – Profil & Keamanan (Tahap F)
+   File berdiri sendiri: semua kelas berawalan .prf
+   ========================================================= */
+
+.prf {
+  --p-primary: var(--color-primary, #623f18);
+  --p-primary-container: var(--color-primary-container, #7d562d);
+  --p-card: #ffffff;
+  --p-surface-low: var(--color-surface-low, #fff1eb);
+  --p-surface-mid: var(--color-surface-mid, #ffeae0);
+  --p-on: #2d1507;
+  --p-on-variant: #50453b;
+  --p-outline: #82756a;
+  --p-outline-variant: #d4c4b7;
+  --p-border: #e5e2dc;
+  --p-secondary-fixed: #ffddba;
+  --p-success: #047857;
+  --p-error: #ba1a1a;
+  --p-hero-1: #3d2314;
+  --p-hero-2: #5e402f;
+  --p-hero-3: #7d562d;
+
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px 16px 104px;
+  color: var(--p-on);
+}
+.prf *, .prf *::before, .prf *::after { box-sizing: border-box; }
+.prf [hidden] { display: none !important; }
+.prf .icon {
+  width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+@media (min-width: 1024px) { .prf { padding: 32px 24px 48px; } }
+.prf-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ---------- Kepala ---------- */
+.prf-head { margin-bottom: 16px; }
+.prf-head__eyebrow { margin: 0 0 4px; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--p-on-variant); }
+.prf-head__title { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; }
+@media (min-width: 1024px) { .prf-head__title { font-size: 36px; line-height: 44px; } }
+
+/* ---------- Identitas ---------- */
+.prf-id {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 16px;
+  border-radius: 20px; color: #ffffff;
+  background: linear-gradient(160deg, var(--p-hero-1) 0%, var(--p-hero-2) 55%, var(--p-hero-3) 100%);
+  box-shadow: var(--elev-23, 0 6px 10px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2));
+}
+.prf-id::after {
+  content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(253, 185, 107, 0.28), rgba(253, 185, 107, 0) 70%);
+}
+.prf-id > * { position: relative; z-index: 1; }
+.prf-avatar {
+  display: grid; place-items: center; width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.55);
+  font-size: 30px; line-height: 1; font-weight: 700; color: #ffffff;
+}
+.prf-id__main { min-width: 0; }
+.prf-id__name { margin: 0; font-size: 22px; line-height: 28px; font-weight: 700; overflow-wrap: anywhere; }
+.prf-id__meta { margin: 2px 0 0; font-size: 12px; line-height: 16px; color: #ffddba; }
+.prf-id__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.prf-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px; font-size: 12px; line-height: 16px;
+  font-weight: 700; color: #ffffff; background: rgba(255, 220, 189, 0.22); border: 1px solid rgba(255, 255, 255, 0.28);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .prf-chip { background: rgba(255, 220, 189, 0.14); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+}
+.prf-chip .icon { width: 16px; height: 16px; }
+.prf-chip--gold { background: var(--p-secondary-fixed); color: #5c3a06; border-color: transparent; }
+
+/* ---------- Tata letak ---------- */
+.prf-grid { display: grid; gap: 16px; }
+.prf-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+@media (min-width: 1024px) { .prf-grid { grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; } .prf-col { gap: 24px; } }
+
+/* ---------- Kartu ---------- */
+.prf-card { background: var(--p-card); border: 1px solid var(--p-border); border-radius: 16px; padding: 16px; }
+.prf-card__head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.prf-card__ico { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: var(--p-surface-mid); color: var(--p-primary); }
+.prf-card__title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; }
+.prf-card__sub { margin: 2px 0 0; font-size: 12px; line-height: 16px; color: var(--p-on-variant); }
+
+/* ---------- Bidang data ---------- */
+.prf-field { padding: 12px 0; border-top: 1px solid var(--p-border); }
+.prf-field:first-of-type { border-top: 0; padding-top: 0; }
+.prf-field__label { display: block; font-size: 12px; line-height: 16px; font-weight: 700; color: var(--p-on-variant); margin-bottom: 4px; }
+.prf-field__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.prf-field__value { font-size: 16px; line-height: 24px; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.prf-hint { margin: 4px 0 0; font-size: 12px; line-height: 16px; color: var(--p-on-variant); }
+.prf-lock {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; white-space: nowrap;
+  background: var(--p-surface-mid); border: 1px solid var(--p-outline-variant); font-size: 12px; line-height: 16px; font-weight: 700; color: var(--p-on);
+}
+.prf-lock .icon { width: 14px; height: 14px; }
+.prf-link {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; background: transparent;
+  color: var(--p-primary); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.prf-link:hover { text-decoration: underline; }
+
+.prf-edit input, .prf-input input {
+  width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--p-outline); border-radius: 12px;
+  background: #ffffff; color: var(--p-on); font: inherit; font-size: 16px;
+}
+.prf-edit input::placeholder, .prf-input input::placeholder { color: var(--p-on-variant); opacity: 0.7; }
+.prf-edit__actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+.prf-input { margin-bottom: 16px; }
+.prf-input label { display: block; margin-bottom: 6px; font-size: 14px; line-height: 20px; font-weight: 600; }
+.prf-input__wrap { position: relative; }
+.prf-input__wrap input { padding-right: 52px; letter-spacing: 0.2em; }
+.prf-eye {
+  position: absolute; right: 2px; top: 2px; width: 44px; height: 44px; display: grid; place-items: center; border: 0;
+  background: transparent; color: var(--p-on-variant); border-radius: 10px; cursor: pointer;
+}
+.prf [aria-invalid="true"] { border-color: var(--p-error) !important; }
+.prf-err { margin: 6px 0 0; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--p-error); }
+
+/* ---------- Banner ---------- */
+.prf-banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px; margin-bottom: 16px; border-radius: 12px; font-size: 14px; line-height: 20px; font-weight: 600; }
+.prf-banner .icon { margin-top: 1px; }
+.prf-banner--ok { background: #d1fae5; color: #065f46; }
+.prf-banner--err { background: #fee2e2; color: #991b1b; }
+
+/* ---------- Tombol ---------- */
+.prf-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px;
+  border-radius: 9999px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.prf-btn--block { width: 100%; }
+.prf-btn--primary { background: var(--p-primary); color: #ffffff; }
+.prf-btn--primary:hover:not(:disabled) { background: var(--p-primary-container); }
+.prf-btn--secondary { background: var(--p-card); color: var(--p-primary); border-color: var(--p-outline-variant); }
+.prf-btn--danger { background: var(--p-card); color: var(--p-error); border-color: var(--p-error); }
+.prf-btn--danger:hover { background: #fff1f1; }
+.prf-btn:disabled { background: var(--p-surface-mid); color: var(--p-on-variant); border-color: var(--p-outline-variant); cursor: not-allowed; }
+.prf a:focus-visible, .prf button:focus-visible, .prf input:focus-visible {
+  outline: 3px solid var(--p-secondary-fixed); outline-offset: 2px; box-shadow: 0 0 0 5px var(--p-primary);
+}
+
+/* ---------- Bantuan & kaki halaman ---------- */
+.prf-help { display: flex; gap: 12px; align-items: flex-start; padding: 16px; border-radius: 16px; background: var(--p-surface-low); }
+.prf-help .icon { margin-top: 2px; color: var(--p-primary); }
+.prf-help h2 { margin: 0 0 4px; font-size: 16px; line-height: 24px; font-weight: 700; }
+.prf-help p { margin: 0; font-size: 14px; line-height: 20px; color: var(--p-on-variant); }
+.prf-foot { margin: 0; text-align: center; font-size: 12px; line-height: 16px; color: var(--p-on-variant); }
+
+/* ---------- Galat / memuat ---------- */
+.prf-error { text-align: center; padding: 32px 16px; margin-bottom: 16px; border: 1px solid var(--p-error); border-radius: 16px; background: #fff; }
+.prf-error p { margin: 0 0 16px; }
+.prf.is-loading [data-skel] { color: transparent !important; background: var(--p-surface-mid); border-radius: 8px; animation: prf-pulse 1.2s ease-in-out infinite; }
+.prf.is-loading .prf-id [data-skel] { background: rgba(255, 255, 255, 0.18); }
+@keyframes prf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .prf.is-loading [data-skel] { animation: none; } }

@@ -26,9 +26,14 @@ ob_start();
       <p class="dash-head__eyebrow">Secangkir semangat hari ini</p>
       <h1 class="dash-head__title"><span id="dash-greeting" data-skel>Halo, Member</span></h1>
     </div>
-    <button type="button" class="dash-logout" id="dash-logout">
-      <svg class="icon" aria-hidden="true"><use href="#icon-logout"/></svg><span>Keluar</span>
-    </button>
+    <div class="dash-head__actions">
+      <a class="dash-logout" href="profile.php">
+        <svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><span>Profil</span>
+      </a>
+      <button type="button" class="dash-logout" id="dash-logout">
+        <svg class="icon" aria-hidden="true"><use href="#icon-logout"/></svg><span>Keluar</span>
+      </button>
+    </div>
   </header>
 
   <!-- Galat memuat data -->

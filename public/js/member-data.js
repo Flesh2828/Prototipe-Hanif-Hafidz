@@ -160,12 +160,30 @@ function baseMemberById(id) {
   return null;
 }
 
+/* Profil: perubahan nama/PIN yang disimpan terpisah (berlaku juga untuk akun dummy) */
+function loadProfiles() {
+  var all = storageGet("kk_profile", {});
+  return (all && typeof all === "object") ? all : {};
+}
+function saveProfileField(memberId, key, value) {
+  var all = loadProfiles();
+  if (!all[memberId]) all[memberId] = {};
+  all[memberId][key] = value;
+  storageSet("kk_profile", all);
+}
+function effectivePin(base) {
+  var pr = loadProfiles()[base.id];
+  return (pr && pr.pin) ? pr.pin : base.pin;
+}
+
 /* Gabungkan data dasar member dengan dompetnya (poin aktif dan tier) */
 function composeMember(base) {
   if (!base) return null;
   var w = getWallet(base.id);
   var m = {};
   for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) m[k] = base[k];
+  var pr = loadProfiles()[base.id];
+  if (pr && pr.name) m.name = pr.name;
   m.pointsActive = Math.max(0, (Number(base.pointsActive) || 0) + (Number(w.adj) || 0));
   var cum = Number(base.pointsCumulative) || 0;
   m.tier = (base.tier === "Gold" || cum >= 100) ? "Gold" : "Regular";
@@ -241,7 +259,7 @@ window.MemberAPI = {
 
     loadMembers();
     var found = null;
-    if (normalizePhone(DUMMY_MEMBER.phone) === phone && DUMMY_MEMBER.pin === pinStr) found = DUMMY_MEMBER;
+    if (normalizePhone(DUMMY_MEMBER.phone) === phone && effectivePin(DUMMY_MEMBER) === pinStr) found = DUMMY_MEMBER;
     if (!found) {
       for (var i = 0; i < memMembers.length; i++) {
         if (normalizePhone(memMembers[i].phone) === phone && memMembers[i].pin === pinStr) { found = memMembers[i]; break; }
@@ -368,27 +386,60 @@ window.MemberAPI = {
     };
   },
 
-  /* Ganti PIN (prototipe) */
-  changePin: async function (oldPin, newPin) {
-    await delay(200);
-    if (!/^[0-9]{6}$/.test(String(newPin))) return { success: false, error: "PIN baru harus 6 digit angka" };
+  /* Ubah nama lengkap */
+  updateName: async function (rawName) {
+    await delay(250);
     var id = currentSessionId();
-    if (!id) return { success: false, error: "Tidak ada sesi login" };
-    if (id === DUMMY_MEMBER.id) {
-      if (DUMMY_MEMBER.pin !== String(oldPin)) return { success: false, error: "PIN lama tidak cocok" };
-      DUMMY_MEMBER.pin = String(newPin); // hanya bertahan sampai halaman dimuat ulang
-      return { success: true };
+    var base = baseMemberById(id);
+    if (!base) return { success: false, error: "Sesi berakhir. Silakan masuk lagi." };
+    var name = String(rawName == null ? "" : rawName).replace(/\s+/g, " ").trim();
+    if (name.length < 2 || name.length > 50) return { success: false, error: "Nama harus 2 sampai 50 karakter." };
+    if (!/^[A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F .'\-]*$/.test(name)) {
+      return { success: false, error: "Nama hanya boleh berisi huruf, spasi, titik, apostrof, atau tanda hubung." };
     }
-    loadMembers();
-    for (var i = 0; i < memMembers.length; i++) {
-      if (memMembers[i].id === id) {
-        if (memMembers[i].pin !== String(oldPin)) return { success: false, error: "PIN lama tidak cocok" };
-        memMembers[i].pin = String(newPin);
-        saveMembers();
-        return { success: true };
+    saveProfileField(id, "name", name);
+    return { success: true, member: composeMember(base) };
+  },
+
+  /* Ganti PIN (prototipe). Salah PIN lama 5x berturut-turut mengunci fitur ini 15 menit. */
+  changePin: async function (oldPin, newPin) {
+    await delay(250);
+    var id = currentSessionId();
+    var base = baseMemberById(id);
+    if (!base) return { success: false, error: "Sesi berakhir. Silakan masuk lagi." };
+    oldPin = String(oldPin == null ? "" : oldPin);
+    newPin = String(newPin == null ? "" : newPin);
+    if (!/^[0-9]{6}$/.test(newPin)) return { success: false, error: "PIN baru harus 6 digit angka." };
+    if (newPin === oldPin) return { success: false, error: "PIN baru tidak boleh sama dengan PIN lama." };
+
+    var lockKey = "pinChangeLock_" + id;
+    var now = Date.now();
+    var lock = storageGet(lockKey, {});
+    if (lock.lockUntil && now < lock.lockUntil) {
+      var mins = Math.max(1, Math.ceil((lock.lockUntil - now) / 60000));
+      return { success: false, error: "Terlalu banyak percobaan. Coba lagi dalam " + mins + " menit." };
+    }
+    if (lock.lockUntil && now >= lock.lockUntil) lock = {};
+
+    var current = id === DUMMY_MEMBER.id ? effectivePin(DUMMY_MEMBER) : base.pin;
+    if (current !== oldPin) {
+      lock.attempts = (lock.attempts || 0) + 1;
+      var left = 5 - lock.attempts;
+      if (lock.attempts >= 5) { lock.lockUntil = now + 15 * 60 * 1000; lock.attempts = 0; left = 0; }
+      storageSet(lockKey, lock);
+      return { success: false, error: left > 0 ? "PIN saat ini salah. Sisa percobaan: " + left + "." : "Terlalu banyak percobaan. Coba lagi dalam 15 menit." };
+    }
+
+    try { localStorage.removeItem(lockKey); } catch (e) { /* abaikan */ }
+    if (id === DUMMY_MEMBER.id) {
+      saveProfileField(id, "pin", newPin);
+    } else {
+      loadMembers();
+      for (var i = 0; i < memMembers.length; i++) {
+        if (memMembers[i].id === id) { memMembers[i].pin = newPin; saveMembers(); break; }
       }
     }
-    return { success: false, error: "Member tidak ditemukan" };
+    return { success: true };
   }
 };
 

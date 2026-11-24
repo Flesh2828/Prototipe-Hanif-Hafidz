@@ -79,6 +79,8 @@ Anda dapat langsung mengakses halaman modular:
 - **Resep & HPP Dinamis BOM (F03):** `http://localhost/Prototipe-Hanif-Hafidz/recipes.php`
 - **Inventori & Peringatan Stok Kritis (F04/F05):** `http://localhost/Prototipe-Hanif-Hafidz/inventory.php`
 
+-**Portal Login member:** http://localhost/Prototipe-Hanif-Hafidz/member/login.php
+
 ---
 
 ## 🗄️ Struktur Proyek (PHP Native & MySQL)
