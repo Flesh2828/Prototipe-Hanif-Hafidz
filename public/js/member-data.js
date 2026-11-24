@@ -89,21 +89,25 @@ function seedDummyVouchers() {
   ];
 }
 
-/* Riwayat poin awal milik akun dummy (tanggal tetap, outlet = id outlet) */
-var HISTORY = [
-  { id: 1, type: "Pembelian", points: 10, outlet: "O1", date: "2026-11-10" },
-  { id: 2, type: "Pembelian", points: 20, outlet: "O2", date: "2026-11-12" },
-  { id: 3, type: "Penukaran voucher", points: -25, outlet: "O1", date: "2026-11-13" },
-  { id: 4, type: "Koreksi void", points: -5, outlet: "O3", date: "2026-11-14" },
-  { id: 5, type: "Kedaluwarsa", points: -3, outlet: "O2", date: "2026-11-15" },
-  { id: 6, type: "Pembelian", points: 15, outlet: "O1", date: "2026-11-16" },
-  { id: 7, type: "Pembelian", points: 12, outlet: "O3", date: "2026-11-17" },
-  { id: 8, type: "Penukaran voucher", points: -30, outlet: "O2", date: "2026-11-18" },
-  { id: 9, type: "Pembelian", points: 8, outlet: "O1", date: "2026-11-19" },
-  { id: 10, type: "Pembelian", points: 7, outlet: "O3", date: "2026-11-20" },
-  { id: 11, type: "Penukaran voucher", points: -25, outlet: "O1", date: "2026-11-21" },
-  { id: 12, type: "Koreksi void", points: -2, outlet: "O2", date: "2026-11-22" }
-];
+/* Riwayat poin akun dummy. Tanggal relatif terhadap hari ini agar selalu terlihat segar,
+   dan jumlah seluruh mutasi = 87 poin (sama dengan saldo awal). */
+function buildDummyLedger() {
+  var rows = [
+    // [hari lalu, jenis, poin, outlet, belanja (Rp, hanya pembelian)]
+    [-88, "Pembelian", 24, "O1", 245000], [-80, "Pembelian", 20, "O2", 208500], [-71, "Pembelian", 18, "O1", 183000],
+    [-62, "Pembelian", 25, "O3", 252000], [-55, "Pembelian", 15, "O2", 156500], [-47, "Pembelian", 22, "O1", 224000],
+    [-38, "Pembelian", 12, "O2", 127000], [-30, "Penukaran voucher", -15, null, null], [-26, "Pembelian", 16, "O3", 169500],
+    [-20, "Penukaran voucher", -25, null, null], [-17, "Pembelian", 14, "O1", 142000], [-12, "Kedaluwarsa", -3, null, null],
+    [-9, "Pembelian", 11, "O2", 118500], [-6, "Penukaran voucher", -25, null, null], [-4, "Koreksi void", -2, "O2", null],
+    [-2, "Penukaran voucher", -30, null, null], [-1, "Pembelian", 10, "O3", 104000]
+  ];
+  return rows.map(function (r, i) {
+    var e = { id: i + 1, type: r[1], points: r[2], outlet: r[3], date: addDaysISO(r[0]) };
+    if (r[4]) e.amount = r[4];
+    return e;
+  });
+}
+var HISTORY = buildDummyLedger();
 
 /* ---------- Penyimpanan member terdaftar ---------- */
 var memMembers = [];
@@ -273,31 +277,42 @@ window.MemberAPI = {
     return { success: true };
   },
 
-  /* Riwayat poin milik member yang login (terbaru lebih dulu) */
+  /* Riwayat poin milik member yang login (terbaru lebih dulu).
+     Opsi: outletId, type, direction ("in" | "out"), page, pageSize.
+     summary = total masuk/keluar untuk outlet terpilih (tidak terpengaruh filter jenis/arah/halaman). */
   getLedger: async function (opts) {
     await delay(200);
     opts = opts || {};
     var outletId = opts.outletId || null;
     var type = opts.type || "Semua";
+    var direction = opts.direction || null;
     var page = opts.page || 1;
     var pageSize = opts.pageSize || 10;
+    var empty = { total: 0, page: page, pageSize: pageSize, data: [], summary: { totalIn: 0, totalOut: 0 } };
 
     var id = currentSessionId();
-    var base = baseMemberById(id);
-    if (!base) return { total: 0, page: page, pageSize: pageSize, data: [] };
+    if (!baseMemberById(id)) return empty;
 
     var list = (id === DUMMY_MEMBER.id ? HISTORY.slice() : []).concat(getWallet(id).ledger);
     if (outletId) list = list.filter(function (h) { return h.outlet === outletId; });
+
+    var summary = { totalIn: 0, totalOut: 0 };
+    list.forEach(function (h) { if (h.points > 0) summary.totalIn += h.points; else summary.totalOut += -h.points; });
+
     if (type !== "Semua") list = list.filter(function (h) { return h.type === type; });
+    if (direction === "in") list = list.filter(function (h) { return h.points > 0; });
+    if (direction === "out") list = list.filter(function (h) { return h.points < 0; });
     list.sort(function (a, b) {
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
       return (b.id || 0) - (a.id || 0);
     });
     var start = (page - 1) * pageSize;
     return {
-      total: list.length, page: page, pageSize: pageSize,
+      total: list.length, page: page, pageSize: pageSize, summary: summary,
       data: list.slice(start, start + pageSize).map(function (e) {
-        return { id: e.id, type: e.type, points: e.points, outlet: e.outlet, date: e.date };
+        var o = { id: e.id, type: e.type, points: e.points, outlet: e.outlet, date: e.date };
+        if (e.amount) o.amount = e.amount;
+        return o;
       })
     };
   },

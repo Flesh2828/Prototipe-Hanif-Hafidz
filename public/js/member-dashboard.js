@@ -139,7 +139,7 @@
       main.className = 'dash-ledger__main';
       var t = document.createElement('p'); t.className = 'dash-ledger__title'; t.textContent = e.type;
       var meta = document.createElement('p'); meta.className = 'dash-ledger__meta';
-      meta.textContent = (e.outlet ? (outletMap[e.outlet] || 'Outlet') : 'Portal Member') + ' • ' + fmtDate(e.date);
+      meta.textContent = (e.outlet ? (outletMap[e.outlet] || 'Outlet') : (e.type === 'Kedaluwarsa' ? 'Sistem KopiKita' : 'Portal Member')) + ' • ' + fmtDate(e.date);
       main.appendChild(t); main.appendChild(meta);
 
       var pts = document.createElement('span');
