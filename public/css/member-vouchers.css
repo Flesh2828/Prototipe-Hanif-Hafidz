@@ -1,0 +1,145 @@
+/* =========================================================
+   KopiKita Member – Voucher & Penukaran (Tahap D)
+   File berdiri sendiri: semua kelas berawalan .vch
+   ========================================================= */
+
+.vch {
+  --v-primary: var(--color-primary, #623f18);
+  --v-primary-container: var(--color-primary-container, #7d562d);
+  --v-card: #ffffff;
+  --v-surface-low: var(--color-surface-low, #fff1eb);
+  --v-surface-mid: var(--color-surface-mid, #ffeae0);
+  --v-on: #2d1507;
+  --v-on-variant: #50453b;
+  --v-outline-variant: #d4c4b7;
+  --v-border: #e5e2dc;
+  --v-secondary-fixed: #ffddba;
+  --v-success: #047857;
+  --v-error: #ba1a1a;
+
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px 16px 104px;
+  color: var(--v-on);
+}
+.vch *, .vch *::before, .vch *::after { box-sizing: border-box; }
+.vch [hidden] { display: none !important; }
+.vch .icon {
+  width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+@media (min-width: 1024px) { .vch { padding: 32px 24px 48px; } }
+
+.vch-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ---------- Kepala ---------- */
+.vch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.vch-head__eyebrow { margin: 0 0 4px; font-size: 14px; line-height: 20px; color: var(--v-on-variant); }
+.vch-head__title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 700; max-width: 520px; }
+@media (min-width: 1024px) { .vch-head__title { font-size: 28px; line-height: 36px; } }
+.vch-points {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 9999px;
+  background: var(--v-secondary-fixed); color: #5c3a06; font-size: 14px; white-space: nowrap;
+}
+.vch-points strong { font-size: 18px; }
+
+/* ---------- Tab ---------- */
+.vch-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--v-surface-mid); margin-bottom: 16px; }
+.vch-tab {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px;
+  border: 0; border-radius: 12px; background: transparent; color: var(--v-on-variant);
+  font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.vch-tab[aria-selected="true"] { background: var(--v-card); color: var(--v-primary); box-shadow: 0 1px 3px rgba(45, 21, 7, 0.15); }
+
+/* ---------- Chip filter ---------- */
+.vch-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.vch-chip {
+  min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid var(--v-outline-variant);
+  background: var(--v-card); color: var(--v-on); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.vch-chip[aria-pressed="true"] { background: var(--v-primary); border-color: var(--v-primary); color: #ffffff; }
+
+/* ---------- Kartu katalog ---------- */
+.vch-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .vch-grid { grid-template-columns: 1fr 1fr; } }
+
+.vch-card { display: flex; flex-direction: column; background: var(--v-card); border: 1px solid var(--v-border); border-radius: 16px; padding: 16px; min-width: 0; }
+.vch-card__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.vch-card__cat { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; font-weight: 700; color: var(--v-on-variant); }
+.vch-card__ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--v-surface-mid); color: var(--v-primary); }
+.vch-cost { padding: 4px 12px; border-radius: 9999px; background: var(--v-secondary-fixed); color: #5c3a06; font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
+.vch-card__title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; overflow-wrap: anywhere; }
+.vch-card__desc { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--v-on-variant); flex: 1; }
+.vch-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.vch-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--v-on-variant); }
+.vch-meta .icon { width: 16px; height: 16px; }
+.vch-gold { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; line-height: 16px; font-weight: 700; color: #5c3a06; }
+.vch-gold .icon { width: 14px; height: 14px; }
+
+/* ---------- Tombol ---------- */
+.vch-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px;
+  border-radius: 9999px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 700;
+  white-space: nowrap; text-decoration: none; cursor: pointer;
+}
+.vch-btn--primary { background: var(--v-primary); color: #ffffff; }
+.vch-btn--primary:hover { background: var(--v-primary-container); }
+.vch-btn--secondary { background: var(--v-card); color: var(--v-primary); border-color: var(--v-outline-variant); }
+.vch-btn--secondary:hover { background: var(--v-surface-low); }
+.vch-btn:disabled, .vch-btn[aria-disabled="true"] {
+  background: var(--v-surface-mid); color: var(--v-on-variant); border-color: var(--v-outline-variant); cursor: not-allowed;
+}
+.vch a:focus-visible, .vch button:focus-visible {
+  outline: 3px solid var(--v-secondary-fixed); outline-offset: 2px; box-shadow: 0 0 0 5px var(--v-primary);
+}
+
+/* ---------- Voucher saya ---------- */
+.vch-list { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .vch-list { grid-template-columns: 1fr 1fr; } }
+.vch-mine { background: var(--v-card); border: 1px solid var(--v-border); border-radius: 16px; padding: 16px; min-width: 0; }
+.vch-mine__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.vch-mine__title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 700; overflow-wrap: anywhere; }
+.vch-status {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 9999px; font-size: 12px; line-height: 16px;
+  font-weight: 700; white-space: nowrap; border: 1px solid transparent;
+}
+.vch-status .icon { width: 14px; height: 14px; }
+.vch-status--active { background: #d1fae5; color: #065f46; }
+.vch-status--redeemed { background: var(--v-surface-mid); color: var(--v-on); border-color: var(--v-outline-variant); }
+.vch-status--expired { background: #fee2e2; color: #991b1b; }
+.vch-code {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 8px 8px 8px 16px;
+  border: 2px dashed var(--v-outline-variant); border-radius: 12px; background: var(--v-surface-low);
+}
+.vch-code__text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: 0.12em; color: var(--v-primary); }
+.vch-mine--inactive .vch-code__text { color: var(--v-on-variant); text-decoration: line-through; }
+.vch-mine__meta { margin: 12px 0 0; font-size: 12px; line-height: 16px; color: var(--v-on-variant); }
+.vch-mine__meta strong { color: var(--v-on); }
+
+/* ---------- Kosong / galat / memuat ---------- */
+.vch-empty { padding: 32px 16px; text-align: center; color: var(--v-on-variant); font-size: 14px; line-height: 20px; }
+.vch-empty strong { display: block; margin-bottom: 4px; color: var(--v-on); font-size: 16px; line-height: 24px; }
+.vch-error { text-align: center; padding: 32px 16px; margin-bottom: 16px; border: 1px solid var(--v-error); border-radius: 16px; background: #fff; }
+.vch-error p { margin: 0 0 16px; }
+.vch-skel { height: 140px; border-radius: 12px; }
+.vch.is-loading [data-skel] { color: transparent !important; background: var(--v-surface-mid); border-radius: 8px; animation: vch-pulse 1.2s ease-in-out infinite; }
+@keyframes vch-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .vch.is-loading [data-skel] { animation: none; } }
+
+/* ---------- Dialog ---------- */
+.vch-dialog { width: min(380px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: 20px; background: #ffffff; color: var(--v-on); box-shadow: 0 12px 32px rgba(45, 21, 7, 0.3); }
+.vch-dialog::backdrop { background: rgba(45, 21, 7, 0.55); }
+.vch-dialog h2 { margin: 0 0 8px; font-size: 22px; line-height: 28px; }
+.vch-dialog p { margin: 0 0 12px; font-size: 14px; line-height: 20px; color: var(--v-on-variant); }
+.vch-dialog__box { padding: 16px; border-radius: 16px; background: var(--v-surface-low); margin-bottom: 16px; }
+.vch-dialog__row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 20px; }
+.vch-dialog__row + .vch-dialog__row { margin-top: 8px; }
+.vch-dialog__row strong { text-align: right; }
+.vch-dialog__actions { display: flex; gap: 12px; }
+.vch-dialog__actions .vch-btn { flex: 1; }
+.vch-dialog__ok { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; background: #d1fae5; color: #065f46; }
+.vch-dialog__ok .icon { width: 28px; height: 28px; }
+.vch-dialog--center { text-align: center; }
+.vch-dialog .vch-code { margin-top: 0; margin-bottom: 12px; text-align: left; }
+.vch-dialog__err { color: var(--v-error); font-weight: 600; }

@@ -1,19 +1,42 @@
-// public/js/member-data.js – prototype data layer with persistence
+// public/js/member-data.js (v2, Tahap D)
+// Lapisan data prototipe: data dummy + penyimpanan di localStorage.
+// Di produksi seluruh logika ini dipindah ke API PHP + MySQL (PIN di-hash bcrypt, poin dihitung server).
 
-/* Utility: simple delay */
+/* ---------- Utilitas ---------- */
 function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
 }
 
-/* Phone normalisation – keep only digits, convert Indonesia prefix to local 0 */
+/* Nomor HP: hanya angka, awalan 62/+62 diubah jadi 0 */
 function normalizePhone(raw) {
-  const digits = raw.replace(/\D/g, "");
-  // replace leading 62 (or 62 after +) with 0
+  var digits = String(raw == null ? "" : raw).replace(/\D/g, "");
   return digits.replace(/^62/, "0");
 }
 
-/* -------------------- Dummy data (hard‑coded) -------------------- */
-const DUMMY_MEMBER = {
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+/* Tanggal lokal format YYYY-MM-DD (bukan UTC, agar tidak bergeser di zona WIB) */
+function localISO(d) {
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+function todayISO() { return localISO(new Date()); }
+function addDaysISO(offset) {
+  var d = new Date();
+  d.setDate(d.getDate() + offset);
+  return localISO(d);
+}
+
+function storageGet(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) { return fallback; }
+}
+function storageSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* data tetap di memori */ }
+}
+
+/* ---------- Data dummy ---------- */
+var DUMMY_MEMBER = {
   id: "KP-82049",
   name: "Raka Pratama",
   phone: "0812-3456-7890",
@@ -22,46 +45,52 @@ const DUMMY_MEMBER = {
   pointsActive: 87,
   pointsCumulative: 87,
   pointsExpiringSoon: 3,
-  joinDate: "2026-01-01",
+  joinDate: "2026-01-01"
 };
 
-const OUTLETS = [
+var OUTLETS = [
   { id: "O1", name: "KopiKita Kaliurang (Pusat)" },
   { id: "O2", name: "KopiKita Gejayan" },
-  { id: "O3", name: "KopiKita Malioboro" },
+  { id: "O3", name: "KopiKita Malioboro" }
 ];
 
-const VOUCHERS = [
-  {
-    id: "VV-001",
-    code: "KK-8921A",
-    title: "Potongan Rp10.000",
-    cost: 25,
-    status: "ACTIVE",
-    description: "Gunakan untuk potongan pembelian minimal Rp50.000",
-    lockedFor: null,
-  },
-  {
-    id: "VV-002",
-    code: "KK-8932B",
-    title: "Gratis 1 Es Kopi Susu",
-    cost: 30,
-    status: "REDEEMED",
-    description: "Sudah ditukarkan pada 2026-11-15",
-    lockedFor: null,
-  },
-  {
-    id: "VV-003",
-    code: "KK-8943C",
-    title: "Diskon Biji Kopi 15%",
-    cost: 60,
-    status: "EXPIRED",
-    description: "Masa berlaku sudah lewat",
-    lockedFor: "Gold",
-  },
+/* Katalog voucher yang bisa ditukar dengan poin (PRD: berlaku 14 hari, voucher biji kopi khusus Gold) */
+var VALID_DAYS = 14;
+var CATALOG = [
+  { id: "C-01", category: "Minuman", title: "Potongan Rp10.000", cost: 25, lockedFor: null,
+    description: "Potongan langsung untuk pembelian menu minuman apa saja di seluruh gerai KopiKita." },
+  { id: "C-02", category: "Minuman", title: "Gratis 1 Es Kopi Susu", cost: 30, lockedFor: null,
+    description: "Nikmati 1 cup Es Kopi Susu Aren racikan barista tanpa minimum pembelian." },
+  { id: "C-03", category: "Minuman", title: "Upgrade Ukuran Gratis", cost: 15, lockedFor: null,
+    description: "Naikkan ukuran minuman pilihanmu satu tingkat tanpa biaya tambahan." },
+  { id: "C-04", category: "Makanan Ringan", title: "Diskon 20% Pastry", cost: 20, lockedFor: null,
+    description: "Diskon 20% untuk satu pastry pilihan di gerai manapun." },
+  { id: "C-05", category: "Makanan Ringan", title: "Gratis 1 Croissant", cost: 40, lockedFor: null,
+    description: "Tukar dengan 1 croissant butter hangat bersama minuman apa pun." },
+  { id: "C-06", category: "Biji Kopi", title: "Diskon Biji Kopi 15%", cost: 60, lockedFor: "Gold",
+    description: "Diskon 15% untuk pembelian biji kopi 200 gram. Khusus member Gold." }
 ];
 
-const HISTORY = [
+/* Voucher awal milik akun dummy */
+function seedDummyVouchers() {
+  return [
+    { id: "MV-1", code: "KK-8Q4D", catalogId: "C-01", title: "Potongan Rp10.000",
+      description: "Potongan langsung untuk pembelian menu minuman apa saja di seluruh gerai KopiKita.",
+      status: "ACTIVE", issuedAt: addDaysISO(-6), expiresAt: addDaysISO(8), redeemedAt: null },
+    { id: "MV-2", code: "KK-F7KT", catalogId: "C-02", title: "Gratis 1 Es Kopi Susu",
+      description: "Nikmati 1 cup Es Kopi Susu Aren racikan barista tanpa minimum pembelian.",
+      status: "ACTIVE", issuedAt: addDaysISO(-2), expiresAt: addDaysISO(12), redeemedAt: null },
+    { id: "MV-3", code: "KK-2M9P", catalogId: "C-01", title: "Potongan Rp10.000",
+      description: "Potongan langsung untuk pembelian menu minuman apa saja di seluruh gerai KopiKita.",
+      status: "REDEEMED", issuedAt: addDaysISO(-20), expiresAt: addDaysISO(-6), redeemedAt: addDaysISO(-15) },
+    { id: "MV-4", code: "KK-7R3W", catalogId: "C-03", title: "Upgrade Ukuran Gratis",
+      description: "Naikkan ukuran minuman pilihanmu satu tingkat tanpa biaya tambahan.",
+      status: "EXPIRED", issuedAt: addDaysISO(-30), expiresAt: addDaysISO(-16), redeemedAt: null }
+  ];
+}
+
+/* Riwayat poin awal milik akun dummy (tanggal tetap, outlet = id outlet) */
+var HISTORY = [
   { id: 1, type: "Pembelian", points: 10, outlet: "O1", date: "2026-11-10" },
   { id: 2, type: "Pembelian", points: 20, outlet: "O2", date: "2026-11-12" },
   { id: 3, type: "Penukaran voucher", points: -25, outlet: "O1", date: "2026-11-13" },
@@ -73,178 +102,279 @@ const HISTORY = [
   { id: 9, type: "Pembelian", points: 8, outlet: "O1", date: "2026-11-19" },
   { id: 10, type: "Pembelian", points: 7, outlet: "O3", date: "2026-11-20" },
   { id: 11, type: "Penukaran voucher", points: -25, outlet: "O1", date: "2026-11-21" },
-  { id: 12, type: "Koreksi void", points: -2, outlet: "O2", date: "2026-11-22" },
+  { id: 12, type: "Koreksi void", points: -2, outlet: "O2", date: "2026-11-22" }
 ];
 
-/* -------------------- Persistent storage helpers -------------------- */
-let memMembers = [];
-function loadMembers() {
-  try {
-    const raw = localStorage.getItem('kk_members');
-    memMembers = raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    // fallback to in‑memory list if storage fails
-    memMembers = [];
-  }
-}
-function saveMembers() {
-  try {
-    localStorage.setItem('kk_members', JSON.stringify(memMembers));
-  } catch (e) {
-    // ignore – data stays in memory only
-  }
-}
-
-// Initialise on load
+/* ---------- Penyimpanan member terdaftar ---------- */
+var memMembers = [];
+function loadMembers() { memMembers = storageGet("kk_members", []); if (!Array.isArray(memMembers)) memMembers = []; }
+function saveMembers() { storageSet("kk_members", memMembers); }
 loadMembers();
 
-/* -------------------- Core API -------------------- */
+/* ---------- Dompet per member: selisih poin, voucher milik, mutasi baru ---------- */
+/* kk_wallet = { "<idMember>": { adj: number, seq: number, vouchers: [], ledger: [] } } */
+function loadWallets() {
+  var w = storageGet("kk_wallet", {});
+  return (w && typeof w === "object") ? w : {};
+}
+function getWallet(memberId) {
+  var all = loadWallets();
+  var w = all[memberId];
+  if (!w) {
+    w = { adj: 0, seq: 1000, vouchers: memberId === DUMMY_MEMBER.id ? seedDummyVouchers() : [], ledger: [] };
+    all[memberId] = w;
+    storageSet("kk_wallet", all);
+  }
+  return w;
+}
+function saveWallet(memberId, wallet) {
+  var all = loadWallets();
+  all[memberId] = wallet;
+  storageSet("kk_wallet", all);
+}
+
+/* Status voucher dihitung saat dibaca: ACTIVE yang lewat tanggal berlaku menjadi EXPIRED */
+function resolveStatus(v) {
+  if (v.status === "ACTIVE" && v.expiresAt < todayISO()) return "EXPIRED";
+  return v.status;
+}
+
+var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // tanpa I, L, O, 0, 1 agar tidak ambigu
+function makeCode(existing) {
+  var code, tries = 0;
+  do {
+    code = "KK-";
+    for (var i = 0; i < 4; i++) code += CODE_ALPHABET.charAt(Math.floor(Math.random() * CODE_ALPHABET.length));
+    tries++;
+  } while (existing.indexOf(code) !== -1 && tries < 50);
+  return code;
+}
+
+function baseMemberById(id) {
+  if (id === DUMMY_MEMBER.id) return DUMMY_MEMBER;
+  for (var i = 0; i < memMembers.length; i++) if (memMembers[i].id === id) return memMembers[i];
+  return null;
+}
+
+/* Gabungkan data dasar member dengan dompetnya (poin aktif dan tier) */
+function composeMember(base) {
+  if (!base) return null;
+  var w = getWallet(base.id);
+  var m = {};
+  for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) m[k] = base[k];
+  m.pointsActive = Math.max(0, (Number(base.pointsActive) || 0) + (Number(w.adj) || 0));
+  var cum = Number(base.pointsCumulative) || 0;
+  m.tier = (base.tier === "Gold" || cum >= 100) ? "Gold" : "Regular";
+  return m;
+}
+
+function currentSessionId() {
+  var sess = storageGet("kk_session", null);
+  return sess && sess.id ? sess.id : null;
+}
+
+/* ---------- API ---------- */
 window.MemberAPI = {
-  /** Helper – normalise phone number */
-  _norm(phone) { return normalizePhone(phone); },
+  _norm: function (phone) { return normalizePhone(phone); },
 
-  /** Get dummy member (for demo) */
-  async getMember() {
+  /* Akun dummy untuk demo */
+  getMember: async function () {
     await delay(250);
-    return { ...DUMMY_MEMBER };
+    return composeMember(DUMMY_MEMBER);
   },
 
-  async getOutlets() {
-    await delay(200);
-    return OUTLETS.map(o => ({ ...o }));
+  getOutlets: async function () {
+    await delay(150);
+    return OUTLETS.map(function (o) { return { id: o.id, name: o.name }; });
   },
 
-  async getVouchers() {
-    await delay(250);
-    return VOUCHERS.map(v => ({ ...v }));
+  /* Katalog voucher (status ACTIVE = tersedia untuk ditukar) */
+  getVouchers: async function () {
+    await delay(150);
+    return CATALOG.map(function (c) {
+      return { id: c.id, category: c.category, title: c.title, description: c.description,
+               cost: c.cost, lockedFor: c.lockedFor, validDays: VALID_DAYS, status: "ACTIVE" };
+    });
   },
 
-  /** Register a new member */
-  async register({ name, phone, pin }) {
+  register: async function (data) {
     await delay(300);
-    const normPhone = normalizePhone(phone);
-    // check against dummy and stored members
-    const existsDummy = normalizePhone(DUMMY_MEMBER.phone) === normPhone;
-    const existsStored = memMembers.some(m => normalizePhone(m.phone) === normPhone);
+    var normPhone = normalizePhone(data.phone);
+    var existsDummy = normalizePhone(DUMMY_MEMBER.phone) === normPhone;
+    var existsStored = memMembers.some(function (m) { return normalizePhone(m.phone) === normPhone; });
     if (existsDummy || existsStored) {
       return { success: false, error: "Nomor HP sudah terdaftar" };
     }
-    const newMember = {
+    var newMember = {
       id: "KP-" + Math.floor(Math.random() * 90000 + 10000),
-      name,
+      name: data.name,
       phone: normPhone,
-      pin: String(pin),
+      pin: String(data.pin), // hanya prototipe; di produksi PIN di-hash bcrypt di server
       tier: "Regular",
       pointsActive: 0,
       pointsCumulative: 0,
       pointsExpiringSoon: 0,
-      joinDate: new Date().toISOString().slice(0, 10),
+      joinDate: todayISO()
     };
     memMembers.push(newMember);
     saveMembers();
-    return { success: true, member: { ...newMember } };
+    return { success: true, member: composeMember(newMember) };
   },
 
-  /** Login – checks dummy + stored members */
-  async login(rawPhone, pin) {
+  login: async function (rawPhone, pin) {
     await delay(250);
-    const phone = normalizePhone(rawPhone);
-    const lockKey = `loginLock_${phone}`;
-    const now = Date.now();
-    let lockInfo = {};
-    try { lockInfo = JSON.parse(localStorage.getItem(lockKey) || "{}"); } catch (e) { lockInfo = {}; }
+    var phone = normalizePhone(rawPhone);
+    var pinStr = String(pin);
+    var lockKey = "loginLock_" + phone;
+    var now = Date.now();
+    var lockInfo = storageGet(lockKey, {});
+
     if (lockInfo.lockUntil && now < lockInfo.lockUntil) {
-      return { success: false, error: "Akun terkunci, coba lagi nanti" };
+      var mins = Math.max(1, Math.ceil((lockInfo.lockUntil - now) / 60000));
+      return { success: false, error: "Akun terkunci. Coba lagi dalam " + mins + " menit." };
+    }
+    if (lockInfo.lockUntil && now >= lockInfo.lockUntil) { lockInfo = {}; }
+
+    loadMembers();
+    var found = null;
+    if (normalizePhone(DUMMY_MEMBER.phone) === phone && DUMMY_MEMBER.pin === pinStr) found = DUMMY_MEMBER;
+    if (!found) {
+      for (var i = 0; i < memMembers.length; i++) {
+        if (normalizePhone(memMembers[i].phone) === phone && memMembers[i].pin === pinStr) { found = memMembers[i]; break; }
+      }
     }
 
-    // find member (dummy or stored)
-    const dummyMatch = normalizePhone(DUMMY_MEMBER.phone) === phone && DUMMY_MEMBER.pin === pin;
-    const stored = memMembers.find(m => normalizePhone(m.phone) === phone && m.pin === pin);
-
-    if (dummyMatch || stored) {
-      // successful login – store session (only id & phone)
-      const sess = dummyMatch ? { id: DUMMY_MEMBER.id, phone: DUMMY_MEMBER.phone } : { id: stored.id, phone: stored.phone };
-      try { localStorage.setItem('kk_session', JSON.stringify(sess)); } catch (e) { /* ignore */ }
-      // reset lock counter
-      try { localStorage.removeItem(lockKey); } catch (e) { /* ignore */ }
-      return { success: true, member: dummyMatch ? { ...DUMMY_MEMBER } : { ...stored } };
+    if (found) {
+      storageSet("kk_session", { id: found.id, phone: found.phone }); // tanpa PIN
+      try { localStorage.removeItem(lockKey); } catch (e) { /* abaikan */ }
+      return { success: true, member: composeMember(found) };
     }
 
-    // failed attempt – update lock info
     lockInfo.attempts = (lockInfo.attempts || 0) + 1;
     if (lockInfo.attempts >= 5) {
-      lockInfo.lockUntil = now + 15 * 60 * 1000; // 15 menit
+      lockInfo.lockUntil = now + 15 * 60 * 1000;
       lockInfo.attempts = 0;
     }
-    try { localStorage.setItem(lockKey, JSON.stringify(lockInfo)); } catch (e) { /* ignore */ }
+    storageSet(lockKey, lockInfo);
     return { success: false, error: "PIN atau nomor HP salah" };
   },
 
-  /** Retrieve current logged‑in member */
-  async getSession() {
-    await delay(100);
-    let sess = null;
-    try { sess = JSON.parse(localStorage.getItem('kk_session') || "null"); } catch (e) { sess = null; }
-    if (!sess) return null;
-    // locate member data
-    if (sess.id === DUMMY_MEMBER.id) return { ...DUMMY_MEMBER };
-    const stored = memMembers.find(m => m.id === sess.id);
-    return stored ? { ...stored } : null;
+  getSession: async function () {
+    await delay(80);
+    loadMembers();
+    var id = currentSessionId();
+    if (!id) return null;
+    return composeMember(baseMemberById(id));
   },
 
-  /** Logout – clear session */
-  async logout() {
-    await delay(100);
-    try { localStorage.removeItem('kk_session'); } catch (e) { /* ignore */ }
+  logout: async function () {
+    await delay(80);
+    try { localStorage.removeItem("kk_session"); } catch (e) { /* abaikan */ }
     return { success: true };
   },
 
-  /** Get ledger (history) – unchanged */
-  async getLedger({ outletId = null, type = "Semua", page = 1, pageSize = 10 } = {}) {
-    await delay(300);
-    const _s = await this.getSession();
-    if (!_s || _s.id !== DUMMY_MEMBER.id) return { total: 0, page, pageSize, data: [] };
-    let list = HISTORY;
-    if (outletId) list = list.filter(h => h.outlet === outletId);
-    if (type !== "Semua") list = list.filter(h => h.type === type);
-    const total = list.length;
-    const start = (page - 1) * pageSize;
-    const pageData = list.slice(start, start + pageSize).map(e => ({ ...e }));
-    return { total, page, pageSize, data: pageData };
+  /* Riwayat poin milik member yang login (terbaru lebih dulu) */
+  getLedger: async function (opts) {
+    await delay(200);
+    opts = opts || {};
+    var outletId = opts.outletId || null;
+    var type = opts.type || "Semua";
+    var page = opts.page || 1;
+    var pageSize = opts.pageSize || 10;
+
+    var id = currentSessionId();
+    var base = baseMemberById(id);
+    if (!base) return { total: 0, page: page, pageSize: pageSize, data: [] };
+
+    var list = (id === DUMMY_MEMBER.id ? HISTORY.slice() : []).concat(getWallet(id).ledger);
+    if (outletId) list = list.filter(function (h) { return h.outlet === outletId; });
+    if (type !== "Semua") list = list.filter(function (h) { return h.type === type; });
+    list.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.id || 0) - (a.id || 0);
+    });
+    var start = (page - 1) * pageSize;
+    return {
+      total: list.length, page: page, pageSize: pageSize,
+      data: list.slice(start, start + pageSize).map(function (e) {
+        return { id: e.id, type: e.type, points: e.points, outlet: e.outlet, date: e.date };
+      })
+    };
   },
 
-  /** Get member's vouchers – simple proxy */
-  async getMyVouchers() {
-    const _s = await this.getSession();
-    if (!_s || _s.id !== DUMMY_MEMBER.id) return [];
-    // in a real app this would be filtered; here we return all for demo
-    await delay(200);
-    return VOUCHERS.map(v => ({ ...v }));
+  /* Voucher milik member yang login */
+  getMyVouchers: async function () {
+    await delay(150);
+    var id = currentSessionId();
+    if (!baseMemberById(id)) return [];
+    return getWallet(id).vouchers.map(function (v) {
+      return { id: v.id, code: v.code, catalogId: v.catalogId, title: v.title, description: v.description,
+               status: resolveStatus(v), issuedAt: v.issuedAt, expiresAt: v.expiresAt, redeemedAt: v.redeemedAt };
+    });
   },
 
-  /** Change PIN – prototype only */
-  // hanya untuk prototipe; di produksi PIN di‑hash bcrypt di server
-  async changePin(oldPin, newPin) {
-    await delay(200);
-    if (!/^[0-9]{6}$/.test(newPin)) {
-      return { success: false, error: "PIN baru harus 6 digit angka" };
+  /* Tukar poin dengan voucher dari katalog */
+  claimVoucher: async function (catalogId) {
+    await delay(350);
+    var id = currentSessionId();
+    var base = baseMemberById(id);
+    if (!base) return { success: false, error: "Sesi berakhir. Silakan masuk lagi." };
+
+    var item = null;
+    for (var i = 0; i < CATALOG.length; i++) if (CATALOG[i].id === catalogId) { item = CATALOG[i]; break; }
+    if (!item) return { success: false, error: "Voucher tidak ditemukan." };
+
+    var member = composeMember(base);
+    if (item.lockedFor && member.tier !== item.lockedFor) {
+      return { success: false, error: "Voucher ini khusus member " + item.lockedFor + "." };
     }
-    const session = await this.getSession();
-    if (!session) return { success: false, error: "Tidak ada sesi login" };
-    // locate member (dummy or stored)
-    if (session.id === DUMMY_MEMBER.id) {
-      if (DUMMY_MEMBER.pin !== oldPin) return { success: false, error: "PIN lama tidak cocok" };
-      DUMMY_MEMBER.pin = newPin;
-    } else {
-      const idx = memMembers.findIndex(m => m.id === session.id);
-      if (idx === -1) return { success: false, error: "Member tidak ditemukan" };
-      if (memMembers[idx].pin !== oldPin) return { success: false, error: "PIN lama tidak cocok" };
-      memMembers[idx].pin = newPin;
-      saveMembers();
+    if (member.pointsActive < item.cost) {
+      return { success: false, error: "Poin belum cukup. Kurang " + (item.cost - member.pointsActive) + " poin." };
     }
-    return { success: true };
+
+    var w = getWallet(id);
+    var codes = w.vouchers.map(function (v) { return v.code; });
+    w.seq = (w.seq || 1000) + 1;
+    var voucher = {
+      id: "MV-" + w.seq, code: makeCode(codes), catalogId: item.id, title: item.title,
+      description: item.description, status: "ACTIVE",
+      issuedAt: todayISO(), expiresAt: addDaysISO(VALID_DAYS), redeemedAt: null
+    };
+    w.adj = (Number(w.adj) || 0) - item.cost;
+    w.vouchers.unshift(voucher);
+    w.seq += 1;
+    w.ledger.push({ id: w.seq, type: "Penukaran voucher", points: -item.cost, outlet: null, date: todayISO() });
+    saveWallet(id, w);
+
+    return {
+      success: true,
+      voucher: { id: voucher.id, code: voucher.code, title: voucher.title, expiresAt: voucher.expiresAt },
+      balance: member.pointsActive - item.cost
+    };
   },
+
+  /* Ganti PIN (prototipe) */
+  changePin: async function (oldPin, newPin) {
+    await delay(200);
+    if (!/^[0-9]{6}$/.test(String(newPin))) return { success: false, error: "PIN baru harus 6 digit angka" };
+    var id = currentSessionId();
+    if (!id) return { success: false, error: "Tidak ada sesi login" };
+    if (id === DUMMY_MEMBER.id) {
+      if (DUMMY_MEMBER.pin !== String(oldPin)) return { success: false, error: "PIN lama tidak cocok" };
+      DUMMY_MEMBER.pin = String(newPin); // hanya bertahan sampai halaman dimuat ulang
+      return { success: true };
+    }
+    loadMembers();
+    for (var i = 0; i < memMembers.length; i++) {
+      if (memMembers[i].id === id) {
+        if (memMembers[i].pin !== String(oldPin)) return { success: false, error: "PIN lama tidak cocok" };
+        memMembers[i].pin = String(newPin);
+        saveMembers();
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Member tidak ditemukan" };
+  }
 };
 
-// Export list of function names for verification (not part of API surface)
 window.MemberAPI._exported = Object.keys(window.MemberAPI);
